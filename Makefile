@@ -19,8 +19,12 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null || echo "")
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
-# Default target
-all: app install extension
+# Default target - standalone app only (no GNOME extension)
+all: app install
+	@echo "\nSetup complete. VoxVibe standalone application is ready."
+
+# Full setup including GNOME extension
+all-with-extension: app install extension
 	@echo "\nSetup complete. Please create a keyboard shortcut as described in README.md."
 
 # Help target
@@ -28,7 +32,8 @@ help:
 	@echo "VoxVibe Makefile Commands:"
 	@echo ""
 	@echo "Development:"
-	@echo "  all          - Setup development environment (app + install + extension)"
+	@echo "  all          - Setup standalone VoxVibe application (recommended)"
+	@echo "  all-with-extension - Setup with GNOME Shell extension"
 	@echo "  app          - Build Python application"
 	@echo "  install      - Install Python application locally"
 	@echo "  extension    - Install GNOME Shell extension"

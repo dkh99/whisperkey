@@ -24,8 +24,16 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         self.history = history
         self.window_manager = window_manager
         
-        # Create icon
-        self.setIcon(self.create_microphone_icon())
+        # Create different icon states
+        self.icons = {
+            'ready': self.create_microphone_icon(),
+            'recording': self.create_recording_icon(),
+            'transcribing': self.create_rocket_icon(),
+            'pasting': self.create_eye_icon()
+        }
+        
+        # Set initial icon
+        self.setIcon(self.icons['ready'])
         self.setToolTip("VoxVibe - Voice Transcription")
         
         # Setup context menu
@@ -66,6 +74,114 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         painter.end()
         return QIcon(pixmap)
     
+    def create_recording_icon(self) -> QIcon:
+        """Create a recording microphone icon with red dot"""
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(QColor(0, 0, 0, 0))  # Transparent background
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw microphone shape
+        painter.setBrush(QColor(255, 80, 80))  # Red color for recording
+        painter.setPen(QColor(255, 255, 255, 200))
+        
+        # Mic body
+        painter.drawRoundedRect(12, 8, 8, 12, 3, 3)
+        
+        # Mic stand
+        painter.drawLine(16, 20, 16, 26)
+        painter.drawLine(12, 26, 20, 26)
+        
+        # Recording indicator (red circle)
+        painter.setBrush(QColor(255, 0, 0))
+        painter.setPen(QColor(255, 0, 0))
+        painter.drawEllipse(22, 6, 6, 6)
+        
+        painter.end()
+        return QIcon(pixmap)
+    
+    def create_rocket_icon(self) -> QIcon:
+        """Create a clear emoji-style rocket icon for transcription"""
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(QColor(0, 0, 0, 0))  # Transparent background
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        from PyQt6.QtCore import QPointF
+        
+        # Main rocket body (larger and more prominent)
+        painter.setBrush(QColor(220, 220, 220))  # Light gray body
+        painter.setPen(QColor(100, 100, 100, 200))
+        painter.drawRoundedRect(12, 12, 8, 14, 3, 3)
+        
+        # Rocket nose cone (more prominent)
+        painter.setBrush(QColor(255, 80, 80))  # Red nose
+        rocket_tip = [
+            QPointF(16, 8),    # Top point
+            QPointF(12, 12),   # Left base
+            QPointF(20, 12)    # Right base
+        ]
+        painter.drawPolygon(rocket_tip)
+        
+        # Window/porthole in the middle
+        painter.setBrush(QColor(100, 150, 255))  # Blue window
+        painter.setPen(QColor(50, 50, 50))
+        painter.drawEllipse(14, 16, 4, 3)
+        
+        # Rocket fins (more emoji-like)
+        painter.setBrush(QColor(180, 180, 180))  # Darker gray fins
+        painter.setPen(QColor(100, 100, 100))
+        # Left fin
+        left_fin = [QPointF(12, 22), QPointF(8, 26), QPointF(12, 26)]
+        painter.drawPolygon(left_fin)
+        # Right fin  
+        right_fin = [QPointF(20, 22), QPointF(24, 26), QPointF(20, 26)]
+        painter.drawPolygon(right_fin)
+        
+        # Flame/exhaust (more vibrant and emoji-like)
+        # Orange flame
+        painter.setBrush(QColor(255, 165, 0))  # Orange
+        painter.setPen(QColor(255, 140, 0))
+        flame_orange = [QPointF(13, 26), QPointF(16, 30), QPointF(19, 26)]
+        painter.drawPolygon(flame_orange)
+        
+        # Yellow inner flame
+        painter.setBrush(QColor(255, 255, 0))  # Bright yellow
+        painter.setPen(QColor(255, 200, 0))
+        flame_yellow = [QPointF(14, 26), QPointF(16, 29), QPointF(18, 26)]
+        painter.drawPolygon(flame_yellow)
+        
+        painter.end()
+        return QIcon(pixmap)
+    
+    def create_eye_icon(self) -> QIcon:
+        """Create an eye icon for paste ready"""
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(QColor(0, 0, 0, 0))  # Transparent background
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw eye outline
+        painter.setBrush(QColor(100, 200, 100))  # Green eye
+        painter.setPen(QColor(255, 255, 255, 200))
+        
+        # Eye shape (ellipse)
+        painter.drawEllipse(8, 12, 16, 8)
+        
+        # Pupil
+        painter.setBrush(QColor(50, 50, 50))  # Dark pupil
+        painter.drawEllipse(14, 14, 4, 4)
+        
+        # Eye highlight
+        painter.setBrush(QColor(255, 255, 255))
+        painter.drawEllipse(15, 15, 1, 1)
+        
+        painter.end()
+        return QIcon(pixmap)
+    
     def setup_menu(self):
         """Setup the context menu"""
         self.menu = QMenu()
@@ -80,6 +196,11 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         self.next_10_submenu = None
         
         self.menu.addSeparator()
+        
+        # Settings
+        settings_action = QAction("⚙️ Settings", self)
+        settings_action.triggered.connect(self.show_settings)
+        self.menu.addAction(settings_action)
         
         # About
         about_action = QAction("ℹ️ About VoxVibe", self)
@@ -324,6 +445,47 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         
         msg_box.exec()
     
+    def show_settings(self):
+        """Show settings dialog"""
+        try:
+            from .settings_dialog import VoxVibeSettings, SettingsDialog
+            
+            # Create settings if needed
+            if not hasattr(self, 'settings'):
+                self.settings = VoxVibeSettings()
+            
+            # Create and show dialog (use None as parent since tray icon isn't a QWidget)
+            dialog = SettingsDialog(self.settings, None)
+            
+            # Connect to settings changed signal
+            dialog.settings_changed.connect(self.on_settings_changed)
+            
+            # Center dialog on screen
+            try:
+                screen = QApplication.primaryScreen()
+                if screen:
+                    screen_geometry = screen.availableGeometry()
+                    dialog_size = dialog.sizeHint()
+                    dialog_x = (screen_geometry.width() - dialog_size.width()) // 2
+                    dialog_y = (screen_geometry.height() - dialog_size.height()) // 2
+                    dialog.move(dialog_x, dialog_y)
+            except Exception:
+                pass  # Use default position if centering fails
+            
+            # Show dialog
+            dialog.exec()
+            
+        except Exception as e:
+            print(f"❌ Error showing settings dialog: {e}")
+            QMessageBox.critical(None, "Settings Error", f"Failed to open settings:\n{str(e)}")
+    
+    def on_settings_changed(self):
+        """Handle settings changes"""
+        print("⚙️ Settings changed - application restart may be required for some changes")
+        self.show_message("Settings Saved", 
+                         "Settings have been saved!\nSome changes may require a restart to take effect.", 
+                         timeout=3000)
+    
     def show_message(self, title: str, message: str, icon=QMessageBox.Icon.Information, timeout: int = 5000):
         """Show a system tray message"""
         if self.supportsMessages():
@@ -336,19 +498,56 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
             msg_box.setText(message)
             msg_box.exec()
     
-    def update_status(self, recording: bool, mode: str = ""):
-        """Update tray icon status based on recording state"""
+    def update_status(self, recording: bool, mode: str = "", transcribing: bool = False):
+        """Update tray icon status based on recording and transcription state"""
         if recording:
+            self.setIcon(self.icons['recording'])
             tooltip = f"VoxVibe - Recording ({mode})"
-            # Could change icon color/style here
+        elif transcribing:
+            self.setIcon(self.icons['transcribing'])
+            tooltip = "VoxVibe - Transcribing..."
         else:
+            self.setIcon(self.icons['ready'])
             tooltip = "VoxVibe - Ready"
         
         self.setToolTip(tooltip)
         
-        # Update history menu when not recording (new entry might be available)
-        if not recording:
+        # Update history menu when not recording and not transcribing (new entry might be available)
+        if not recording and not transcribing:
             self.update_history_menu()
+    
+    def update_transcription_status(self, transcribing: bool, partial_text: str = ""):
+        """Update tray icon to show transcription progress with rocket icon"""
+        if transcribing:
+            self.setIcon(self.icons['transcribing'])  # Show rocket icon
+            if partial_text:
+                # Show partial results in tooltip
+                preview = partial_text[:30] + "..." if len(partial_text) > 30 else partial_text
+                tooltip = f"VoxVibe - 🚀 Transcribing: \"{preview}\""
+            else:
+                tooltip = "VoxVibe - 🚀 Transcribing..."
+        else:
+            self.setIcon(self.icons['ready'])  # Back to microphone
+            tooltip = "VoxVibe - Ready"
+        
+        self.setToolTip(tooltip)
+        print(f"🎯 Icon updated: {'rocket' if transcribing else 'microphone'} - {tooltip}")
+        
+        # Update history menu when transcription is complete
+        if not transcribing:
+            self.update_history_menu()
+    
+    def show_paste_ready(self):
+        """Show eye icon when ready to paste"""
+        self.setIcon(self.icons['pasting'])
+        self.setToolTip("VoxVibe - 👁️ Ready to paste!")
+        print("🎯 Icon updated: eye - Ready to paste!")
+    
+    def reset_to_ready(self):
+        """Reset icon to ready state"""
+        self.setIcon(self.icons['ready'])
+        self.setToolTip("VoxVibe - Ready")
+        print("🎯 Icon updated: microphone - Ready")
     
     def _convert_to_local_time(self, utc_datetime: datetime) -> datetime:
         """Convert UTC datetime to local system time (handles BST/GMT automatically)"""

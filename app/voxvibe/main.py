@@ -18,6 +18,7 @@ from .hotkey_service import HotkeyService, RecordingMode
 from .sound_fx import SoundFX
 from .theme import apply_theme
 from .transcriber import Transcriber
+from .streaming_transcriber import StreamingTranscriber
 from .tray_icon import VoxVibeTrayIcon
 
 
@@ -25,13 +26,22 @@ class RecordingThread(QThread):
     """Worker thread for audio recording using the improved timeout approach"""
     recording_finished = pyqtSignal(object, float)  # audio_data, start_time
     transcription_ready = pyqtSignal(str, int)  # text, duration_ms
+    transcription_progress = pyqtSignal(str)  # partial_text
     
-    def __init__(self, transcriber: Transcriber):
+    def __init__(self, transcriber: StreamingTranscriber):
         super().__init__()
         self.transcriber = transcriber
         self.recorder = AudioRecorder()
         self.should_stop = False
         self.start_time = 0
+        
+        # Connect to streaming transcriber signals
+        self.transcriber.partial_result.connect(self.on_partial_result)
+        self.transcriber.final_result.connect(self.on_final_result)
+        self.transcriber.transcription_started.connect(self.on_transcription_started)
+        self.transcriber.transcription_finished.connect(self.on_transcription_finished)
+        self.transcriber.llm_processing_started.connect(self.on_llm_processing_started)
+        self.transcriber.llm_processing_finished.connect(self.on_llm_processing_finished)
     
     def run(self):
         """Record audio until stopped - using the improved pattern"""
@@ -79,15 +89,44 @@ class RecordingThread(QThread):
         
         # Don't directly set is_recording=False here - let the run() method handle it
         # This prevents race conditions where we stop before audio chunks are collected
+    
+    def on_partial_result(self, text: str, confidence: float):
+        """Handle partial transcription results"""
+        print(f"📝 Partial result: {text} (confidence: {confidence:.2f})")
+        self.transcription_progress.emit(text)
+    
+    def on_final_result(self, text: str, confidence: float):
+        """Handle final transcription results"""
+        print(f"✅ Final result: {text} (confidence: {confidence:.2f})")
+        duration_ms = int((time.time() - self.start_time) * 1000)
+        self.transcription_ready.emit(text, duration_ms)
+    
+    def on_transcription_started(self):
+        """Handle transcription started"""
+        print("🎯 Transcription started")
+    
+    def on_transcription_finished(self):
+        """Handle transcription finished"""
+        print("🎯 Transcription finished")
+    
+    def on_llm_processing_started(self):
+        """Handle LLM processing started"""
+        print("🤖 LLM processing started")
+        # Note: tray_icon updates handled by main app, not recording thread
+    
+    def on_llm_processing_finished(self, cleaned_text: str):
+        """Handle LLM processing finished"""
+        print(f"🤖 LLM processing finished: '{cleaned_text}'")
+        # Note: tray_icon updates handled by main app, not recording thread
 
 
 class VoxVibeApp:
     """Main VoxVibe application with all components integrated"""
     
-    def __init__(self):
+    def __init__(self, openai_api_key=None):
         # Core components
         self.app = None
-        self.transcriber = Transcriber()
+        self.transcriber = StreamingTranscriber(openai_api_key=openai_api_key)
         self.history = TranscriptionHistory()
         
         # UI components
@@ -150,7 +189,15 @@ class VoxVibeApp:
         # Initialize recording thread
         self.recording_thread = RecordingThread(self.transcriber)
         self.recording_thread.recording_finished.connect(self.on_recording_finished)
-        self.recording_thread.transcription_ready.connect(self.on_transcription_complete)
+        # Note: Removed transcription_ready connection - using context-aware signal instead
+        self.recording_thread.transcription_progress.connect(self.on_transcription_progress)
+        
+        # Connect ONLY to context-aware transcription signal (this handles both LLM and non-LLM cases)
+        self.transcriber.final_result_with_context.connect(self.on_transcription_complete_with_context)
+        
+        # Connect LLM processing signals to main app for UI updates only
+        self.transcriber.llm_processing_started.connect(self.on_llm_processing_started_main)
+        self.transcriber.llm_processing_finished.connect(self.on_llm_processing_finished_main)
         
         # Initialize hotkey service
         self.hotkey_service = HotkeyService()
@@ -231,33 +278,84 @@ class VoxVibeApp:
             self.tray_icon.update_status(False, "Ready")
     
     def on_recording_finished(self, audio_data, start_time: float):
-        """Handle completed recording - do transcription in worker thread, emit to main thread"""
+        """Handle completed recording - start streaming transcription"""
         if audio_data is not None and len(audio_data) > 0:
-            print("🔄 Processing transcription...")
-            duration_ms = int((time.time() - start_time) * 1000)
-            text = self.transcriber.transcribe(audio_data)
+            print("🔄 Starting streaming transcription...")
             
-            if text and text.strip():
-                # Emit signal to main thread for clipboard/paste operations
-                self.recording_thread.transcription_ready.emit(text.strip(), duration_ms)
-            else:
-                print("❌ No speech detected in audio")
+            # Update tray icon to show transcription is starting
+            if self.tray_icon:
+                self.tray_icon.update_transcription_status(True)
+            
+            # Start streaming transcription (this will emit partial/final results via signals)
+            self.transcriber.transcribe_streaming(audio_data)
         else:
             print("❌ No audio data recorded - check microphone permissions")
+    
+    def on_transcription_progress(self, partial_text: str):
+        """Handle partial transcription results"""
+        print(f"📝 Transcription progress: '{partial_text}'")
+        
+        # Update tray icon with partial results
+        if self.tray_icon:
+            self.tray_icon.update_transcription_status(True, partial_text)
     
     def on_transcription_complete(self, text: str, duration_ms: int):
         """Handle completed transcription"""
         print(f"✅ Transcription complete ({duration_ms}ms): '{text}'")
+        
+        # Update tray icon to show transcription is complete
+        if self.tray_icon:
+            self.tray_icon.update_transcription_status(False)
         
         # Add to history
         mode_name = self.current_mode.value
         entry_id = self.history.add_entry(text, duration_ms, mode_name)
         print(f"📚 Added to history as entry #{entry_id}")
         
-        # Paste text
+        # Paste text with default method
+        self._paste_text_with_method(text, "ctrl+shift+v")
+        
+        # Notify tray icon
+        if self.tray_icon:
+            self.tray_icon.notify_transcription_complete(text)
+    
+    def on_transcription_complete_with_context(self, text: str, confidence: float, context_type: str):
+        """Handle completed transcription with context awareness"""
+        print(f"✅ Transcription complete with context '{context_type}': '{text}'")
+        
+        # Update tray icon to show transcription is complete
+        if self.tray_icon:
+            self.tray_icon.update_transcription_status(False)
+        
+        # Add to history
+        mode_name = self.current_mode.value
+        duration_ms = int(time.time() * 1000)  # Approximate duration
+        entry_id = self.history.add_entry(text, duration_ms, mode_name)
+        print(f"📚 Added to history as entry #{entry_id}")
+        
+        # Determine paste method based on context
+        paste_method = self._get_paste_method_for_context(context_type)
+        print(f"🎯 Using paste method: {paste_method} for context: {context_type}")
+        
+        # Paste text with context-appropriate method
+        self._paste_text_with_method(text, paste_method)
+        
+        # Notify tray icon
+        if self.tray_icon:
+            self.tray_icon.notify_transcription_complete(text)
+    
+    def _get_paste_method_for_context(self, context_type: str) -> str:
+        """Get the appropriate paste method based on detected context"""
+        if context_type == "code_window":
+            return "ctrl+v"  # Simple paste for code windows
+        else:
+            return "ctrl+shift+v"  # Default paste for most contexts
+    
+    def _paste_text_with_method(self, text: str, paste_method: str):
+        """Paste text using the specified method"""
         if self.window_manager:
             try:
-                print("📋 Attempting to paste text...")
+                print(f"📋 Attempting to paste text with {paste_method}...")
                 # Set text to clipboard for other apps with fallback
                 print(f"📋 Setting clipboard to: '{text[:50]}{'...' if len(text) > 50 else ''}'")
                 
@@ -281,26 +379,35 @@ class VoxVibeApp:
                     print("📋 Using xclip as backup for reliability...")
                     self._set_clipboard_with_xclip(text)
                 
-                # Focus previous window and paste
-                success = self.window_manager.paste_to_previous_window()
+                # Show eye icon before pasting
+                if self.tray_icon:
+                    self.tray_icon.show_paste_ready()
+                
+                # Small delay to show the eye icon
+                import time
+                time.sleep(0.2)
+                
+                # Focus previous window and paste with specified method
+                success = self.window_manager.paste_to_previous_window(paste_method=paste_method)
                 if success:
-                    print("✅ Text pasted successfully")
+                    print(f"✅ Text pasted successfully with {paste_method}")
                     if self.tray_icon:
+                        self.tray_icon.reset_to_ready()
                         self.tray_icon.show_message("VoxVibe", "Text pasted successfully!", timeout=2000)
                 else:
-                    print("❌ Auto-paste failed - please press Ctrl+Shift+V")
+                    paste_display = paste_method.replace('+', '+').upper()
+                    print(f"❌ Auto-paste failed - please press {paste_display}")
                     if self.tray_icon:
+                        self.tray_icon.reset_to_ready()
                         self.tray_icon.show_message("VoxVibe - Paste Ready", 
-                                                  "Text copied to clipboard.\nPress Ctrl+Shift+V to paste.", 
+                                                  f"Text copied to clipboard.\nPress {paste_display} to paste.", 
                                                   timeout=5000)
             except Exception as e:
                 print(f"❌ Error pasting text: {e}")
+                if self.tray_icon:
+                    self.tray_icon.reset_to_ready()
         else:
             print("❌ No window manager available for pasting")
-        
-        # Notify tray icon
-        if self.tray_icon:
-            self.tray_icon.notify_transcription_complete(text)
     
     def _set_clipboard_with_xclip(self, text: str):
         """Set clipboard using xclip as fallback/backup"""
@@ -328,6 +435,20 @@ class VoxVibeApp:
         print(f"🔄 Mode changed to: {mode.value}")
         
         # UI updates handled by tray icon
+    
+    def on_llm_processing_started_main(self):
+        """Handle LLM processing started in main app"""
+        print("🤖 LLM processing started (main app)")
+        # Update tray icon to show LLM processing
+        if self.tray_icon:
+            self.tray_icon.update_transcription_status(True, "Cleaning up text...")
+    
+    def on_llm_processing_finished_main(self, cleaned_text: str):
+        """Handle LLM processing finished in main app"""
+        print(f"🤖 LLM processing finished (main app): '{cleaned_text}'")
+        # Update tray icon back to ready state
+        if self.tray_icon:
+            self.tray_icon.update_transcription_status(False)
     
 
     
@@ -365,6 +486,10 @@ class VoxVibeApp:
         """Clean up resources"""
         print("🧹 Cleaning up...")
         
+        # Clean up LLM processor threads first
+        if hasattr(self.transcriber, 'llm_processor') and self.transcriber.llm_processor:
+            self.transcriber.llm_processor.cleanup()
+        
         if self.hotkey_service:
             self.hotkey_service.stop()
         
@@ -383,7 +508,24 @@ class VoxVibeApp:
 def main():
     """Main entry point"""
     try:
-        app = VoxVibeApp()
+        # Load settings
+        from .settings_dialog import VoxVibeSettings
+        settings = VoxVibeSettings()
+        
+        # Get OpenAI API key from settings (which checks environment as fallback)
+        openai_api_key = settings.get_openai_api_key()
+        
+        if openai_api_key:
+            if settings.is_llm_enabled():
+                print("🤖 OpenAI API key found and LLM enabled - post-processing active")
+            else:
+                print("⚠️ OpenAI API key found but LLM disabled in settings - post-processing disabled")
+                openai_api_key = None  # Disable LLM processing
+        else:
+            print("⚠️ No OpenAI API key found - LLM post-processing disabled")
+            print("   Use 'Settings' in the tray menu to configure your API key")
+        
+        app = VoxVibeApp(openai_api_key=openai_api_key)
         app.initialize()
         return app.run()
     except KeyboardInterrupt:

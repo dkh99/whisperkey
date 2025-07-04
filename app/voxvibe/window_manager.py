@@ -248,23 +248,23 @@ class WindowManager:
         
         return False
     
-    def simulate_paste(self) -> bool:
-        """Simulate Ctrl+Shift+V paste action with multiple fallback methods"""
+    def simulate_paste(self, paste_method: str = "ctrl+shift+v") -> bool:
+        """Simulate paste action with multiple fallback methods"""
         
         # Method 1: Try ydotool for Wayland (if available and working)
         if self.display_server == 'wayland':
             try:
-                print("Simulating Ctrl+Shift+V with ydotool...")
+                print(f"Simulating {paste_method} with ydotool...")
                 # Try wrapper script first, then fallback to direct ydotool
                 try:
                     result = subprocess.run(
-                        ['/usr/local/bin/ydotool-wrapper.sh', 'key', 'ctrl+shift+v'],
+                        ['/usr/local/bin/ydotool-wrapper.sh', 'key', paste_method],
                         capture_output=True,
                         timeout=3
                     )
                 except FileNotFoundError:
                     result = subprocess.run(
-                        ['ydotool', 'key', 'ctrl+shift+v'],
+                        ['ydotool', 'key', paste_method],
                         capture_output=True,
                         timeout=3
                     )
@@ -287,9 +287,9 @@ class WindowManager:
         # Method 2: Try xdotool for X11
         elif self.display_server == 'x11':
             try:
-                print("Simulating Ctrl+Shift+V with xdotool...")
+                print(f"Simulating {paste_method} with xdotool...")
                 result = subprocess.run(
-                    ['xdotool', 'key', 'ctrl+shift+v'],
+                    ['xdotool', 'key', paste_method],
                     capture_output=True,
                     timeout=3
                 )
@@ -308,33 +308,35 @@ class WindowManager:
                 print(f"❌ xdotool error: {e}")
         
         # Method 3: Fallback - show notification to paste manually
-        print("⚠️ Automatic paste failed. Text is in clipboard - press Ctrl+Shift+V to paste.")
-        self._show_paste_notification()
+        print(f"⚠️ Automatic paste failed. Text is in clipboard - press {paste_method.replace('+', '+').upper()} to paste.")
+        self._show_paste_notification(paste_method)
         return False  # Return False so the app knows to show notification
     
-    def _show_paste_notification(self):
+    def _show_paste_notification(self, paste_method: str = "ctrl+shift+v"):
         """Show a notification telling user to paste manually"""
         try:
             # Try to show system notification
+            paste_display = paste_method.replace('+', '+').upper()
             subprocess.run([
                 'notify-send', 
                 'VoxVibe - Paste Ready', 
-                'Text transcribed and copied to clipboard.\nPress Ctrl+Shift+V to paste.',
+                f'Text transcribed and copied to clipboard.\nPress {paste_display} to paste.',
                 '--icon=input-keyboard',
                 '--urgency=normal',
                 '--expire-time=5000'
             ], capture_output=True, timeout=2)
-            print("📢 Notification sent: Press Ctrl+Shift+V to paste")
+            print(f"📢 Notification sent: Press {paste_display} to paste")
         except Exception as e:
             print(f"📢 Could not send notification: {e}")
-            print("📢 Please press Ctrl+Shift+V to paste the transcribed text")
+            print(f"📢 Please press {paste_method.replace('+', '+').upper()} to paste the transcribed text")
     
-    def paste_to_previous_window(self, delay_ms=500) -> bool:
+    def paste_to_previous_window(self, delay_ms=500, paste_method: str = "ctrl+shift+v") -> bool:
         """
         Focus previous window and paste clipboard contents
         
         Args:
             delay_ms: Delay in milliseconds between focus and paste
+            paste_method: The paste method to use ('ctrl+v' for code windows, 'ctrl+shift+v' for terminals)
             
         Returns:
             True if successful, False otherwise
@@ -345,10 +347,10 @@ class WindowManager:
         # Wait a bit for the window to become active
         time.sleep(delay_ms / 1000.0)
         
-        # Then simulate paste
-        paste_success = self.simulate_paste()
+        # Then simulate paste with the specified method
+        paste_success = self.simulate_paste(paste_method)
         
-        print(f"Focus: {focus_success}, Paste: {paste_success}")
+        print(f"Focus: {focus_success}, Paste: {paste_success} ({paste_method})")
         return focus_success and paste_success
     
     def check_dependencies(self) -> dict:
