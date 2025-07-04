@@ -25,13 +25,14 @@ class LLMProcessor(QObject):
     processing_finished_with_context = pyqtSignal(str, str)  # cleaned_text, context_type
     processing_failed = pyqtSignal(str)    # error_message
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4.1-nano"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4.1-nano", settings=None):
         super().__init__()
         self.model = model
         self.client = None
         self.enabled = False
         self._active_threads = []
         self._active_workers = []
+        self.settings = settings
         
         # Initialize OpenAI client
         if OPENAI_AVAILABLE and (api_key or os.getenv("OPENAI_API_KEY")):
@@ -74,7 +75,7 @@ class LLMProcessor(QObject):
         
         # Store thread reference to prevent premature destruction
         thread = QThread(self)  # Pass parent to prevent early destruction
-        worker = LLMWorker(self.client, self.model, raw_text)
+        worker = LLMWorker(self.client, self.model, raw_text, self.settings)
         worker.moveToThread(thread)
         
         # Store references to prevent garbage collection
@@ -125,7 +126,7 @@ class LLMProcessor(QObject):
         
         # Store thread reference to prevent premature destruction
         thread = QThread(self)  # Pass parent to prevent early destruction
-        worker = LLMWorkerWithContext(self.client, self.model, raw_text)
+        worker = LLMWorkerWithContext(self.client, self.model, raw_text, self.settings)
         worker.moveToThread(thread)
         
         # Store references to prevent garbage collection
@@ -294,6 +295,13 @@ class LLMProcessor(QObject):
     
     def _get_system_prompt(self, context_type: str) -> str:
         """Get the appropriate system prompt for the context"""
+        # Try to get custom prompt from settings first
+        if self.settings:
+            custom_prompt = self.settings.get_prompt(context_type, "system_prompt")
+            if custom_prompt:
+                return custom_prompt
+        
+        # Fallback to default prompts
         base_prompt = "You are an expert editor who specialises in cleaning up dictated text using British English conventions."
         
         context_prompts = {
@@ -311,6 +319,21 @@ class LLMProcessor(QObject):
     def _get_context_prompt(self, raw_text: str, context_type: str) -> str:
         """Get the appropriate cleaning prompt based on context"""
         
+        # Try to get custom instructions from settings first
+        if self.settings:
+            custom_instructions = self.settings.get_prompt(context_type, "instructions")
+            if custom_instructions:
+                return f"""Please clean up this dictated text for {context_type.replace('_', ' ')} context.
+
+Instructions:
+{custom_instructions}
+
+Raw dictated text:
+"{raw_text}"
+
+Cleaned text:"""
+        
+        # Fallback to default instructions
         base_instructions = """- Use British English spelling and conventions
 - Fix punctuation and capitalisation
 - Remove filler words (um, uh, you know, etc.)
@@ -382,16 +405,17 @@ class LLMWorker(QObject):
     finished = pyqtSignal(str)  # cleaned_text
     failed = pyqtSignal(str)    # error_message
     
-    def __init__(self, client, model: str, raw_text: str):
+    def __init__(self, client, model: str, raw_text: str, settings=None):
         super().__init__()
         self.client = client
         self.model = model
         self.raw_text = raw_text
+        self.settings = settings
     
     def process(self):
         """Process the text"""
         try:
-            processor = LLMProcessor()
+            processor = LLMProcessor(settings=self.settings)
             processor.client = self.client
             processor.model = self.model
             processor.enabled = True
@@ -411,16 +435,17 @@ class LLMWorkerWithContext(QObject):
     finished_with_context = pyqtSignal(str, str)  # cleaned_text, context_type
     failed = pyqtSignal(str)    # error_message
     
-    def __init__(self, client, model: str, raw_text: str):
+    def __init__(self, client, model: str, raw_text: str, settings=None):
         super().__init__()
         self.client = client
         self.model = model
         self.raw_text = raw_text
+        self.settings = settings
     
     def process(self):
         """Process the text with context detection"""
         try:
-            processor = LLMProcessor()
+            processor = LLMProcessor(settings=self.settings)
             processor.client = self.client
             processor.model = self.model
             processor.enabled = True

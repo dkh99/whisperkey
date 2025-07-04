@@ -123,10 +123,10 @@ class RecordingThread(QThread):
 class VoxVibeApp:
     """Main VoxVibe application with all components integrated"""
     
-    def __init__(self, openai_api_key=None):
+    def __init__(self, openai_api_key=None, settings=None):
         # Core components
         self.app = None
-        self.transcriber = StreamingTranscriber(openai_api_key=openai_api_key)
+        self.transcriber = StreamingTranscriber(openai_api_key=openai_api_key, settings=settings)
         self.history = TranscriptionHistory()
         
         # UI components
@@ -525,7 +525,7 @@ def main():
             print("⚠️ No OpenAI API key found - LLM post-processing disabled")
             print("   Use 'Settings' in the tray menu to configure your API key")
         
-        app = VoxVibeApp(openai_api_key=openai_api_key)
+        app = VoxVibeApp(openai_api_key=openai_api_key, settings=settings)
         app.initialize()
         return app.run()
     except KeyboardInterrupt:

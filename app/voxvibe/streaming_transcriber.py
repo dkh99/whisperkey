@@ -43,10 +43,11 @@ class StreamingTranscriber(QObject):
     llm_processing_finished = pyqtSignal(str)  # cleaned_text
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, model_size="base", prefer_streaming=True, openai_api_key=None):
+    def __init__(self, model_size="base", prefer_streaming=True, openai_api_key=None, settings=None):
         super().__init__()
         self.model_size = model_size
         self.prefer_streaming = prefer_streaming and WHISPERFLOW_AVAILABLE
+        self.settings = settings
         
         # Initialize models
         self.whisper_model = None
@@ -72,7 +73,7 @@ class StreamingTranscriber(QObject):
     def _initialize_llm_processor(self, api_key=None):
         """Initialize the LLM processor for text cleanup"""
         try:
-            self.llm_processor = LLMProcessor(api_key=api_key, model="gpt-4.1-nano")
+            self.llm_processor = LLMProcessor(api_key=api_key, model="gpt-4.1-nano", settings=self.settings)
             
             # Connect LLM processor signals
             self.llm_processor.processing_started.connect(self.llm_processing_started.emit)

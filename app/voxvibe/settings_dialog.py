@@ -172,6 +172,15 @@ class VoxVibeSettings:
         enabled = self.get("llm.enabled", False)
         api_key = self.get_openai_api_key()
         return bool(enabled) and bool(api_key)
+    
+    def get_prompt(self, context_type: str, prompt_type: str) -> str:
+        """Get a custom prompt for a context type."""
+        result = self.get(f"prompts.{context_type}.{prompt_type}", "")
+        return str(result) if result is not None else ""
+    
+    def set_prompt(self, context_type: str, prompt_type: str, value: str):
+        """Set a custom prompt for a context type."""
+        self.set(f"prompts.{context_type}.{prompt_type}", value)
 
 
 class SettingsDialog(QDialog):
@@ -203,6 +212,10 @@ class SettingsDialog(QDialog):
         # Audio Settings Tab
         audio_tab = self.create_audio_tab()
         self.tabs.addTab(audio_tab, "🎤 Audio Settings")
+        
+        # Prompts Settings Tab
+        prompts_tab = self.create_prompts_tab()
+        self.tabs.addTab(prompts_tab, "📝 Custom Prompts")
         
         layout.addWidget(self.tabs)
         
@@ -278,6 +291,92 @@ class SettingsDialog(QDialog):
         widget.setLayout(layout)
         return widget
     
+    def create_prompts_tab(self) -> QWidget:
+        """Create the prompts customization tab."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Instructions
+        instructions = QLabel(
+            "🎯 Customize the AI prompts for different contexts. Each context has:\n"
+            "• System Prompt: Defines the AI's role and behaviour\n"
+            "• Instructions: Specific guidelines for text cleanup"
+        )
+        instructions.setWordWrap(True)
+        instructions.setStyleSheet("color: #666; font-size: 12px; margin: 10px;")
+        layout.addWidget(instructions)
+        
+        # Create scroll area for all the prompt editors
+        scroll = QScrollArea()
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout()
+        
+        # Store prompt editors for later access
+        self.prompt_editors = {}
+        
+        # Context types with user-friendly names
+        contexts = [
+            ("code_window", "🖥️ Code Window", "Direct insertion into code editors/IDEs"),
+            ("coding_agent", "🤖 Coding Agent", "Technical communication with AI assistants"),
+            ("slack", "💬 Slack", "Team messaging on Slack"),
+            ("whatsapp", "📱 WhatsApp", "Casual messaging"),
+            ("formal_email", "📧 Formal Email", "Business correspondence"),
+            ("casual_email", "✉️ Casual Email", "Friendly emails"),
+            ("casual_message", "💭 Casual Message", "General conversational text")
+        ]
+        
+        for context_id, context_name, context_desc in contexts:
+            # Create group for this context
+            group = QGroupBox(f"{context_name} - {context_desc}")
+            group_layout = QVBoxLayout()
+            
+            # System prompt editor
+            sys_label = QLabel("System Prompt (defines AI's role):")
+            sys_label.setStyleSheet("font-weight: bold;")
+            group_layout.addWidget(sys_label)
+            
+            sys_edit = QTextEdit()
+            sys_edit.setMaximumHeight(100)
+            sys_edit.setPlaceholderText("Enter the system prompt that defines how the AI should behave for this context...")
+            group_layout.addWidget(sys_edit)
+            
+            # Instructions editor
+            inst_label = QLabel("Instructions (specific cleanup guidelines):")
+            inst_label.setStyleSheet("font-weight: bold;")
+            group_layout.addWidget(inst_label)
+            
+            inst_edit = QTextEdit()
+            inst_edit.setMaximumHeight(120)
+            inst_edit.setPlaceholderText("Enter specific instructions for cleaning up text in this context...")
+            group_layout.addWidget(inst_edit)
+            
+            # Reset button for this context
+            reset_btn = QPushButton("Reset to Default")
+            reset_btn.clicked.connect(lambda checked, ctx=context_id: self.reset_context_prompts(ctx))
+            group_layout.addWidget(reset_btn)
+            
+            group.setLayout(group_layout)
+            scroll_layout.addWidget(group)
+            
+            # Store references
+            self.prompt_editors[context_id] = {
+                'system_prompt': sys_edit,
+                'instructions': inst_edit
+            }
+        
+        scroll_widget.setLayout(scroll_layout)
+        scroll.setWidget(scroll_widget)
+        scroll.setWidgetResizable(True)
+        layout.addWidget(scroll)
+        
+        # Reset all button
+        reset_all_btn = QPushButton("Reset All Prompts to Default")
+        reset_all_btn.clicked.connect(self.reset_all_prompts)
+        layout.addWidget(reset_all_btn)
+        
+        widget.setLayout(layout)
+        return widget
+    
     def create_audio_tab(self) -> QWidget:
         """Create the audio settings tab."""
         widget = QWidget()
@@ -327,6 +426,23 @@ class SettingsDialog(QDialog):
         self.whisper_model_combo.setCurrentText(self.settings.get("audio.model", "base"))
         self.language_combo.setCurrentText(self.settings.get("audio.language", "auto"))
         
+        # Load prompts
+        if hasattr(self, 'prompt_editors'):
+            defaults = self.settings._get_default_prompts()
+            for context_id, editors in self.prompt_editors.items():
+                # Get custom prompts or fall back to defaults
+                system_prompt = self.settings.get_prompt(context_id, "system_prompt")
+                instructions = self.settings.get_prompt(context_id, "instructions")
+                
+                # If no custom prompts exist, use defaults
+                if not system_prompt and context_id in defaults:
+                    system_prompt = defaults[context_id]["system_prompt"]
+                if not instructions and context_id in defaults:
+                    instructions = defaults[context_id]["instructions"]
+                
+                editors['system_prompt'].setPlainText(system_prompt)
+                editors['instructions'].setPlainText(instructions)
+        
         # Update UI state
         self.on_llm_enabled_changed(self.llm_enabled_cb.checkState())
     
@@ -369,6 +485,15 @@ class SettingsDialog(QDialog):
             self.settings.set("audio.model", self.whisper_model_combo.currentText())
             self.settings.set("audio.language", self.language_combo.currentText())
             
+            # Save prompts
+            if hasattr(self, 'prompt_editors'):
+                for context_id, editors in self.prompt_editors.items():
+                    system_prompt = editors['system_prompt'].toPlainText()
+                    instructions = editors['instructions'].toPlainText()
+                    
+                    self.settings.set_prompt(context_id, "system_prompt", system_prompt)
+                    self.settings.set_prompt(context_id, "instructions", instructions)
+            
             # Save to file
             if self.settings.save_settings():
                 self.settings_changed.emit()
@@ -379,3 +504,42 @@ class SettingsDialog(QDialog):
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"❌ Error saving settings:\n{str(e)}")
+    
+    def reset_context_prompts(self, context_id: str):
+        """Reset prompts for a specific context to defaults."""
+        if not hasattr(self, 'prompt_editors'):
+            return
+        
+        # Get default prompts
+        defaults = self.settings._get_default_prompts()
+        
+        if context_id in defaults and context_id in self.prompt_editors:
+            default_system = defaults[context_id]["system_prompt"]
+            default_instructions = defaults[context_id]["instructions"]
+            
+            self.prompt_editors[context_id]['system_prompt'].setPlainText(default_system)
+            self.prompt_editors[context_id]['instructions'].setPlainText(default_instructions)
+            
+            QMessageBox.information(self, "Reset Complete", f"✅ {context_id.replace('_', ' ').title()} prompts reset to defaults!")
+    
+    def reset_all_prompts(self):
+        """Reset all prompts to defaults."""
+        reply = QMessageBox.question(
+            self, "Reset All Prompts", 
+            "Are you sure you want to reset ALL prompts to their defaults?\n\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            if hasattr(self, 'prompt_editors'):
+                defaults = self.settings._get_default_prompts()
+                
+                for context_id, editors in self.prompt_editors.items():
+                    if context_id in defaults:
+                        default_system = defaults[context_id]["system_prompt"]
+                        default_instructions = defaults[context_id]["instructions"]
+                        
+                        editors['system_prompt'].setPlainText(default_system)
+                        editors['instructions'].setPlainText(default_instructions)
+                
+                QMessageBox.information(self, "Reset Complete", "✅ All prompts reset to defaults!")
