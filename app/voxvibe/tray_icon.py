@@ -1,15 +1,15 @@
 """System tray icon for VoxVibe with history access and quick actions."""
 
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Optional
-import os
 
-from PyQt6.QtCore import QObject, pyqtSignal, QTimer
-from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QColor, QCursor
-from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QApplication, QMessageBox
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction, QColor, QCursor, QIcon, QPainter, QPixmap
+from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from .history import TranscriptionHistory, HistoryEntry
+from .history import HistoryEntry, TranscriptionHistory
 from .window_manager import WindowManager
 
 
@@ -448,7 +448,7 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
     def show_settings(self):
         """Show settings dialog"""
         try:
-            from .settings_dialog import VoxVibeSettings, SettingsDialog
+            from .settings_dialog import SettingsDialog, VoxVibeSettings
             
             # Create settings if needed
             if not hasattr(self, 'settings'):

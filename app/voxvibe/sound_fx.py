@@ -61,8 +61,9 @@ class SoundFX:
         """Create a default start sound using system beep or synthesized tone"""
         try:
             # Try to create a simple WAV file with a pleasant start tone
-            import numpy as np
             import wave
+
+            import numpy as np
             
             # Generate a pleasant "ping" sound (ascending tone)
             sample_rate = 44100
@@ -96,8 +97,9 @@ class SoundFX:
     def _create_default_stop_sound(self, filepath: Path):
         """Create a default stop sound"""
         try:
-            import numpy as np
             import wave
+
+            import numpy as np
             
             # Generate a pleasant "done" sound (descending tone)
             sample_rate = 44100

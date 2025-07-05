@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
 """Settings dialog for VoxVibe configuration."""
 
-import os
 import json
+import os
 from pathlib import Path
-from typing import Optional, Dict, Any
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, 
-    QLineEdit, QCheckBox, QComboBox, QPushButton, 
-    QLabel, QGroupBox, QMessageBox, QTabWidget, QWidget,
-    QTextEdit, QScrollArea, QSplitter
-)
+from typing import Any, Dict, Optional
+
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class VoxVibeSettings:
@@ -52,17 +65,26 @@ class VoxVibeSettings:
             "prompts": self._get_default_prompts()
         }
     
-    def _get_default_prompts(self) -> Dict[str, Dict[str, str]]:
-        """Get default prompts for each context type."""
-        base_prompt = "You are an expert editor who specialises in cleaning up dictated text using British English conventions."
-        base_instructions = """- Use British English spelling and conventions
+    def _get_default_base_prompts(self) -> Dict[str, str]:
+        """Get default base prompts that all contexts build upon."""
+        return {
+            "base_prompt": "You are an expert editor who specialises in cleaning up dictated text using British English conventions.",
+            "base_instructions": """- Use British English spelling and conventions
 - Fix punctuation and capitalisation
 - Remove filler words (um, uh, you know, etc.)
 - Improve sentence structure and flow
 - Maintain the original meaning and intent
 - Don't add content that wasn't implied in the original"""
+        }
+    
+    def _get_default_prompts(self) -> Dict[str, Dict[str, str]]:
+        """Get default prompts for each context type."""
+        # Get base prompts (either custom or default)
+        base_prompt = self.get_base_prompt()
+        base_instructions = self.get_base_instructions()
         
         return {
+            "base": self._get_default_base_prompts(),
             "code_window": {
                 "system_prompt": f"{base_prompt} You format text for direct insertion into code editors or IDEs, keeping it concise and code-appropriate.",
                 "instructions": f"""{base_instructions}
@@ -181,6 +203,30 @@ class VoxVibeSettings:
     def set_prompt(self, context_type: str, prompt_type: str, value: str):
         """Set a custom prompt for a context type."""
         self.set(f"prompts.{context_type}.{prompt_type}", value)
+    
+    def get_base_prompt(self) -> str:
+        """Get the base prompt (either custom or default)."""
+        custom_base = self.get("prompts.base.base_prompt", "")
+        if custom_base:
+            return custom_base
+        else:
+            return self._get_default_base_prompts()["base_prompt"]
+    
+    def get_base_instructions(self) -> str:
+        """Get the base instructions (either custom or default)."""
+        custom_base = self.get("prompts.base.base_instructions", "")
+        if custom_base:
+            return custom_base
+        else:
+            return self._get_default_base_prompts()["base_instructions"]
+    
+    def set_base_prompt(self, value: str):
+        """Set the base prompt."""
+        self.set("prompts.base.base_prompt", value)
+    
+    def set_base_instructions(self, value: str):
+        """Set the base instructions."""
+        self.set("prompts.base.base_instructions", value)
 
 
 class SettingsDialog(QDialog):
@@ -193,7 +239,7 @@ class SettingsDialog(QDialog):
         self.settings = settings
         self.setWindowTitle("VoxVibe Settings")
         self.setModal(True)
-        self.setMinimumSize(500, 400)
+        self.setMinimumSize(600, 500)
         
         self.setup_ui()
         self.load_current_settings()
@@ -298,9 +344,11 @@ class SettingsDialog(QDialog):
         
         # Instructions
         instructions = QLabel(
-            "🎯 Customize the AI prompts for different contexts. Each context has:\n"
-            "• System Prompt: Defines the AI's role and behaviour\n"
-            "• Instructions: Specific guidelines for text cleanup"
+            "🎯 Customize the AI prompts for different contexts.\n"
+            "• Base prompts form the foundation that all contexts build upon\n"
+            "• Each context adds specific behavior on top of the base prompts\n"
+            "• System Prompt defines the AI's role and behaviour\n"
+            "• Instructions provide specific guidelines for text cleanup"
         )
         instructions.setWordWrap(True)
         instructions.setStyleSheet("color: #666; font-size: 12px; margin: 10px;")
@@ -313,6 +361,50 @@ class SettingsDialog(QDialog):
         
         # Store prompt editors for later access
         self.prompt_editors = {}
+        
+        # Base Prompts Section (NEW)
+        base_group = QGroupBox("🏗️ Base Prompts - Foundation for all contexts")
+        base_group.setStyleSheet("QGroupBox { font-weight: bold; color: #2c3e50; }")
+        base_layout = QVBoxLayout()
+        
+        # Base prompt editor
+        base_prompt_label = QLabel("Base System Prompt (defines the AI's core role):")
+        base_prompt_label.setStyleSheet("font-weight: bold; color: #34495e;")
+        base_layout.addWidget(base_prompt_label)
+        
+        self.base_prompt_edit = QTextEdit()
+        self.base_prompt_edit.setMaximumHeight(80)
+        self.base_prompt_edit.setPlaceholderText("Enter the base system prompt that defines the AI's core role across all contexts...")
+        base_layout.addWidget(self.base_prompt_edit)
+        
+        # Base instructions editor
+        base_instructions_label = QLabel("Base Instructions (core cleanup guidelines for all contexts):")
+        base_instructions_label.setStyleSheet("font-weight: bold; color: #34495e;")
+        base_layout.addWidget(base_instructions_label)
+        
+        self.base_instructions_edit = QTextEdit()
+        self.base_instructions_edit.setMaximumHeight(100)
+        self.base_instructions_edit.setPlaceholderText("Enter the base instructions that apply to all contexts...")
+        base_layout.addWidget(self.base_instructions_edit)
+        
+        # Reset base prompts button
+        reset_base_btn = QPushButton("Reset Base Prompts to Default")
+        reset_base_btn.clicked.connect(self.reset_base_prompts)
+        base_layout.addWidget(reset_base_btn)
+        
+        base_group.setLayout(base_layout)
+        scroll_layout.addWidget(base_group)
+        
+        # Separator
+        separator = QLabel("━" * 60)
+        separator.setStyleSheet("color: #bdc3c7; font-size: 14px; margin: 10px;")
+        separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        scroll_layout.addWidget(separator)
+        
+        # Context-specific prompts
+        context_title = QLabel("🎯 Context-Specific Prompts - Build upon base prompts")
+        context_title.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 14px; margin: 10px;")
+        scroll_layout.addWidget(context_title)
         
         # Context types with user-friendly names
         contexts = [
@@ -331,23 +423,23 @@ class SettingsDialog(QDialog):
             group_layout = QVBoxLayout()
             
             # System prompt editor
-            sys_label = QLabel("System Prompt (defines AI's role):")
+            sys_label = QLabel("Additional System Prompt (adds to base):")
             sys_label.setStyleSheet("font-weight: bold;")
             group_layout.addWidget(sys_label)
             
             sys_edit = QTextEdit()
-            sys_edit.setMaximumHeight(100)
-            sys_edit.setPlaceholderText("Enter the system prompt that defines how the AI should behave for this context...")
+            sys_edit.setMaximumHeight(80)
+            sys_edit.setPlaceholderText(f"Enter additional system prompt for {context_name.lower()}...")
             group_layout.addWidget(sys_edit)
             
             # Instructions editor
-            inst_label = QLabel("Instructions (specific cleanup guidelines):")
+            inst_label = QLabel("Additional Instructions (adds to base):")
             inst_label.setStyleSheet("font-weight: bold;")
             group_layout.addWidget(inst_label)
             
             inst_edit = QTextEdit()
-            inst_edit.setMaximumHeight(120)
-            inst_edit.setPlaceholderText("Enter specific instructions for cleaning up text in this context...")
+            inst_edit.setMaximumHeight(100)
+            inst_edit.setPlaceholderText(f"Enter additional instructions for {context_name.lower()}...")
             group_layout.addWidget(inst_edit)
             
             # Reset button for this context
@@ -426,7 +518,21 @@ class SettingsDialog(QDialog):
         self.whisper_model_combo.setCurrentText(self.settings.get("audio.model", "base"))
         self.language_combo.setCurrentText(self.settings.get("audio.language", "auto"))
         
-        # Load prompts
+        # Load base prompts
+        if hasattr(self, 'base_prompt_edit'):
+            base_prompt = self.settings.get("prompts.base.base_prompt", "")
+            base_instructions = self.settings.get("prompts.base.base_instructions", "")
+            
+            # If no custom base prompts exist, use defaults
+            if not base_prompt:
+                base_prompt = self.settings._get_default_base_prompts()["base_prompt"]
+            if not base_instructions:
+                base_instructions = self.settings._get_default_base_prompts()["base_instructions"]
+            
+            self.base_prompt_edit.setPlainText(base_prompt)
+            self.base_instructions_edit.setPlainText(base_instructions)
+        
+        # Load context-specific prompts
         if hasattr(self, 'prompt_editors'):
             defaults = self.settings._get_default_prompts()
             for context_id, editors in self.prompt_editors.items():
@@ -485,7 +591,15 @@ class SettingsDialog(QDialog):
             self.settings.set("audio.model", self.whisper_model_combo.currentText())
             self.settings.set("audio.language", self.language_combo.currentText())
             
-            # Save prompts
+            # Save base prompts
+            if hasattr(self, 'base_prompt_edit'):
+                base_prompt = self.base_prompt_edit.toPlainText()
+                base_instructions = self.base_instructions_edit.toPlainText()
+                
+                self.settings.set_base_prompt(base_prompt)
+                self.settings.set_base_instructions(base_instructions)
+            
+            # Save context-specific prompts
             if hasattr(self, 'prompt_editors'):
                 for context_id, editors in self.prompt_editors.items():
                     system_prompt = editors['system_prompt'].toPlainText()
@@ -504,6 +618,15 @@ class SettingsDialog(QDialog):
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"❌ Error saving settings:\n{str(e)}")
+    
+    def reset_base_prompts(self):
+        """Reset base prompts to defaults."""
+        if hasattr(self, 'base_prompt_edit'):
+            defaults = self.settings._get_default_base_prompts()
+            self.base_prompt_edit.setPlainText(defaults["base_prompt"])
+            self.base_instructions_edit.setPlainText(defaults["base_instructions"])
+            
+            QMessageBox.information(self, "Reset Complete", "✅ Base prompts reset to defaults!")
     
     def reset_context_prompts(self, context_id: str):
         """Reset prompts for a specific context to defaults."""
@@ -526,11 +649,18 @@ class SettingsDialog(QDialog):
         """Reset all prompts to defaults."""
         reply = QMessageBox.question(
             self, "Reset All Prompts", 
-            "Are you sure you want to reset ALL prompts to their defaults?\n\nThis cannot be undone.",
+            "Are you sure you want to reset ALL prompts (including base prompts) to their defaults?\n\nThis cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
+            # Reset base prompts
+            if hasattr(self, 'base_prompt_edit'):
+                defaults = self.settings._get_default_base_prompts()
+                self.base_prompt_edit.setPlainText(defaults["base_prompt"])
+                self.base_instructions_edit.setPlainText(defaults["base_instructions"])
+            
+            # Reset context prompts
             if hasattr(self, 'prompt_editors'):
                 defaults = self.settings._get_default_prompts()
                 

@@ -7,19 +7,19 @@ import sys
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .audio_recorder import AudioRecorder
-from .window_manager import WindowManager
 from .history import TranscriptionHistory
 from .hotkey_service import HotkeyService, RecordingMode
 from .sound_fx import SoundFX
+from .streaming_transcriber import StreamingTranscriber
 from .theme import apply_theme
 from .transcriber import Transcriber
-from .streaming_transcriber import StreamingTranscriber
 from .tray_icon import VoxVibeTrayIcon
+from .window_manager import WindowManager
 
 
 class RecordingThread(QThread):

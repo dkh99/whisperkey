@@ -2,20 +2,20 @@
 """Streaming transcriber using WhisperFlow for real-time transcription with partial results."""
 
 import asyncio
-import time
 import threading
-from typing import Optional, Callable, Any
+import time
 from dataclasses import dataclass
+from typing import Any, Callable, Optional
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
+from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 # Note: WhisperFlow has Python version compatibility issues with 3.12
 # Using our own streaming implementation based on faster-whisper
 WHISPERFLOW_AVAILABLE = False
 
-from .transcriber import Transcriber  # Fallback to original transcriber
 from .llm_processor import LLMProcessor
+from .transcriber import Transcriber  # Fallback to original transcriber
 
 
 @dataclass

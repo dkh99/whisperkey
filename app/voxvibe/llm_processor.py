@@ -2,9 +2,11 @@
 """LLM post-processor for cleaning up dictated text using OpenAI GPT-4.1-nano."""
 
 import os
+import re
 import time
 from typing import Optional
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
+
+from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 try:
     import openai
@@ -179,14 +181,53 @@ class LLMProcessor(QObject):
             print(f"❌ LLM processing failed: {e}")
             return raw_text  # Return original text on failure
     
+    def _extract_explicit_context(self, text: str) -> tuple[str, Optional[str]]:
+        """Look for explicit context instruction inside the dictated text.
+        Returns a tuple of (cleaned_text_without_instruction, detected_context_or_None).
+        Supported patterns:
+          • "this is a <context> message"
+          • "send (this )?as a <context> (message|email)"
+          • "context: <context>"
+        <context> can be: code, coding, slack, whatsapp, formal email, casual email, casual message
+        The search is case-insensitive.
+        The matched instruction phrase is removed from the returned text.
+        """
+        context_patterns = {
+            'code_window': [r"this is (a )?(code|coding|text) (window|editor|message)",
+                            r"send (this )?as (a )?(code|coding) (window|message)",
+                            r"context:\s*code"],
+            'coding_agent': [r"this is (a )?coding agent (request|message)",
+                             r"send (this )?to (the )?coding agent", r"context:\s*coding agent"],
+            'slack': [r"this is (a )?slack message", r"send (this )?as (a )?slack message", r"context:\s*slack"],
+            'whatsapp': [r"this is (a )?whatsapp message", r"send (this )?as (a )?whatsapp message", r"context:\s*whatsapp"],
+            'formal_email': [r"this is (a )?formal email", r"send (this )?as (a )?formal email", r"context:\s*formal email"],
+            'casual_email': [r"this is (a )?casual email", r"send (this )?as (a )?casual email", r"context:\s*casual email"],
+            'casual_message': [r"this is (a )?casual message", r"send (this )?as (a )?casual message", r"context:\s*casual message"],
+        }
+
+        lowered = text.lower()
+        for ctx, patterns in context_patterns.items():
+            for pat in patterns:
+                m = re.search(pat, lowered, flags=re.IGNORECASE)
+                if m:
+                    # Remove the matched instruction phrase from the original text (case-insensitive)
+                    start, end = m.span()
+                    cleaned = text[:start] + text[end:]  # keep original casing outside match
+                    return cleaned.strip(), ctx
+        return text, None
+
     def _clean_dictated_text(self, raw_text: str) -> str:
-        """Send text to GPT-4.1-nano for context-aware cleaning of dictated content"""
-        # First, detect the communication type
-        context_type = self._detect_communication_context(raw_text)
-        print(f"🎯 Detected context: {context_type}")
+        """Send text to GPT for context-aware cleaning of dictated content"""
+        # First, check for explicit context instruction and strip it
+        cleaned_raw, explicit_ctx = self._extract_explicit_context(raw_text)
+        base_text = cleaned_raw or raw_text  # fallback if stripping empties text
+
+        # Detect context if not explicitly specified
+        context_type = explicit_ctx or self._detect_communication_context(base_text)
+        print(f"🎯 Detected context: {context_type} (explicit: {bool(explicit_ctx)})")
         
-        # Get the appropriate prompt based on context
-        prompt = self._get_context_prompt(raw_text, context_type)
+        # Build prompt
+        prompt = self._get_context_prompt(base_text, context_type)
 
         try:
             start_time = time.time()
@@ -222,13 +263,12 @@ class LLMProcessor(QObject):
             raise
     
     def _clean_dictated_text_with_context(self, raw_text: str) -> tuple[str, str]:
-        """Send text to GPT-4.1-nano for context-aware cleaning and return both cleaned text and context type"""
-        # First, detect the communication type
-        context_type = self._detect_communication_context(raw_text)
-        print(f"🎯 Detected context: {context_type}")
-        
-        # Get the appropriate prompt based on context
-        prompt = self._get_context_prompt(raw_text, context_type)
+        """Clean text and return both cleaned text and context type"""
+        cleaned_raw, explicit_ctx = self._extract_explicit_context(raw_text)
+        base_text = cleaned_raw or raw_text
+        context_type = explicit_ctx or self._detect_communication_context(base_text)
+        print(f"🎯 Detected context: {context_type} (explicit: {bool(explicit_ctx)})")
+        prompt = self._get_context_prompt(base_text, context_type)
 
         try:
             start_time = time.time()
@@ -269,7 +309,11 @@ class LLMProcessor(QObject):
         
         # Check for explicit context indicators first
         # Code window context - user wants simple Ctrl+V paste
-        if any(phrase in text_lower for phrase in ['code window', 'coding window', 'in a code', 'in code', 'im in a code', "i'm in a code"]):
+        if any(phrase in text_lower for phrase in [
+            'code window', 'coding window', 'in a code', 'in code', 'im in a code', "i'm in a code",
+            # New phrases to capture common wording
+            'text editor', 'in a text editor', "i'm in a text editor", 'editor window', 'code editor'
+        ]):
             return 'code_window'
         elif any(word in text_lower for word in ['cursor', 'code', 'coding', 'agent', 'programming', 'debug', 'function', 'variable']):
             return 'coding_agent'
@@ -301,8 +345,11 @@ class LLMProcessor(QObject):
             if custom_prompt:
                 return custom_prompt
         
-        # Fallback to default prompts
-        base_prompt = "You are an expert editor who specialises in cleaning up dictated text using British English conventions."
+        # Fallback to default prompts using custom base prompts if available
+        if self.settings:
+            base_prompt = self.settings.get_base_prompt()
+        else:
+            base_prompt = "You are an expert editor who specialises in cleaning up dictated text using British English conventions."
         
         context_prompts = {
             'code_window': f"{base_prompt} You format text for direct insertion into code editors or IDEs, keeping it concise and code-appropriate.",
@@ -316,82 +363,101 @@ class LLMProcessor(QObject):
         
         return context_prompts.get(context_type, context_prompts['casual_message'])
     
+    def _get_recent_history_snippet(self, max_entries: int = 10, minutes: int = 5) -> str:
+        """Fetch recent history entries within the specified number of minutes.
+        Returns a newline-joined snippet or an empty string if none.
+        """
+        try:
+            from datetime import datetime, timedelta
+
+            from .history import TranscriptionHistory
+            history = TranscriptionHistory()  # Uses the same default DB path
+            entries = history.get_recent(limit=max_entries)
+            cutoff = datetime.utcnow() - timedelta(minutes=minutes)
+            recent_entries = [e.text for e in entries if e.timestamp >= cutoff]
+            if recent_entries:
+                # Reverse chronological order (oldest first) for natural flow
+                recent_entries.reverse()
+                snippet_lines = [f"{i+1}. {t}" for i, t in enumerate(recent_entries)]
+                return "\n".join(snippet_lines)
+            return ""
+        except Exception as e:
+            print(f"⚠️ Could not fetch recent history for context: {e}")
+            return ""
+
     def _get_context_prompt(self, raw_text: str, context_type: str) -> str:
-        """Get the appropriate cleaning prompt based on context"""
+        """Get the appropriate cleaning prompt based on context, including recent history for extra context"""
         
         # Try to get custom instructions from settings first
         if self.settings:
             custom_instructions = self.settings.get_prompt(context_type, "instructions")
             if custom_instructions:
-                return f"""Please clean up this dictated text for {context_type.replace('_', ' ')} context.
-
-Instructions:
-{custom_instructions}
-
-Raw dictated text:
-"{raw_text}"
-
-Cleaned text:"""
+                instructions_block = custom_instructions
+            else:
+                instructions_block = None
+        else:
+            instructions_block = None
         
-        # Fallback to default instructions
-        base_instructions = """- Use British English spelling and conventions
+        # Fallback to default instructions using base instructions if needed
+        if instructions_block is None:
+            if self.settings:
+                base_instructions = self.settings.get_base_instructions()
+            else:
+                base_instructions = """- Use British English spelling and conventions
 - Fix punctuation and capitalisation
 - Remove filler words (um, uh, you know, etc.)
 - Improve sentence structure and flow
 - Maintain the original meaning and intent
 - Don't add content that wasn't implied in the original"""
-
-        context_instructions = {
-            'code_window': f"""{base_instructions}
+            # Build context-specific instructions from earlier dict (existing logic)
+            context_instructions = {
+                'code_window': f"""{base_instructions}
 - Keep text concise and editor-appropriate
 - Remove all dictation-specific phrases
 - Focus on content that belongs in code editors
 - Maintain technical accuracy if applicable
 - Remove context indicators like 'I'm in a code window'""",
-            
-            'coding_agent': f"""{base_instructions}
+                'coding_agent': f"""{base_instructions}
 - Keep technical terms precise and accurate
 - Maintain clarity for coding-related requests
 - Use proper technical vocabulary
 - Structure requests logically for AI assistants""",
-            
-            'slack': f"""{base_instructions}
+                'slack': f"""{base_instructions}
 - Keep it concise and team-friendly
 - Use appropriate Slack conventions
 - Maintain casual but clear communication
 - Remove excessive formality""",
-            
-            'whatsapp': f"""{base_instructions}
+                'whatsapp': f"""{base_instructions}
 - Keep it casual and conversational
 - Use natural, friendly language
 - Remove excessive formality
 - Maintain personal tone""",
-            
-            'formal_email': f"""{base_instructions}
+                'formal_email': f"""{base_instructions}
 - Use formal British English conventions
 - Structure with proper email etiquette
 - Maintain professional tone throughout
 - Use appropriate formal vocabulary""",
-            
-            'casual_email': f"""{base_instructions}
+                'casual_email': f"""{base_instructions}
 - Use friendly but professional tone
 - Structure clearly but not overly formal
 - Maintain approachable language
 - Balance casualness with clarity""",
-            
-            'casual_message': f"""{base_instructions}
+                'casual_message': f"""{base_instructions}
 - Keep natural and conversational
 - Maintain friendly tone
 - Remove excessive formality
 - Focus on clear communication"""
-        }
+            }
+            instructions_block = context_instructions.get(context_type, context_instructions['casual_message'])
         
-        instructions = context_instructions.get(context_type, context_instructions['casual_message'])
+        # Fetch recent history context
+        recent_snippet = self._get_recent_history_snippet()
+        recent_block = f"Recent conversation snippets (last 5 minutes):\n{recent_snippet}\n\n" if recent_snippet else ""
         
-        return f"""Please clean up this dictated text for {context_type.replace('_', ' ')} context.
+        return f"""Please clean up the dictated text for {context_type.replace('_', ' ')} context.
 
-Instructions:
-{instructions}
+{recent_block}Instructions:
+{instructions_block}
 
 Raw dictated text:
 "{raw_text}"

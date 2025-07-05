@@ -1,8 +1,8 @@
+import gc
 import queue
 import threading
-from typing import Optional
 import time
-import gc
+from typing import Optional
 
 import numpy as np
 import sounddevice as sd

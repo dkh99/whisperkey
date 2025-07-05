@@ -4,11 +4,10 @@ Provides SQLite-based storage for recent transcriptions with safety net function
 """
 import sqlite3
 import threading
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
-
-from dataclasses import dataclass
 
 
 @dataclass

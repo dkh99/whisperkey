@@ -6,9 +6,9 @@ import math
 import time
 from typing import List, Optional
 
-from PyQt6.QtCore import QTimer, Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QMouseEvent
-from PyQt6.QtWidgets import QWidget, QApplication
+from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPen
+from PyQt6.QtWidgets import QApplication, QWidget
 
 from .hotkey_service import RecordingMode
 
