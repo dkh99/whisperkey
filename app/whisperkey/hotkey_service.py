@@ -1,4 +1,4 @@
-"""Simplified hotkey service for VoxVibe.
+"""Simplified hotkey service for Whisper Key.
 
 Supports:
 - Win+Alt (hold-to-talk)

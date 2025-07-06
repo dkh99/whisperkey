@@ -1,8 +1,8 @@
-# VoxVibe v0.2.0 🎤
+# Whisper Key v0.2.0 🎤
 
 **Fast, reliable voice transcription with global hotkeys for Linux**
 
-VoxVibe is a unified Python application that provides instant speech-to-text transcription with global hotkeys. Simply hold **Win+Alt** and speak - VoxVibe will transcribe your speech and paste it directly where you need it.
+Whisper Key is a unified Python application that provides instant speech-to-text transcription with global hotkeys. Simply hold **Win+Alt** and speak - Whisper Key will transcribe your speech and paste it directly where you need it.
 
 ## ✨ Features
 
@@ -18,12 +18,12 @@ VoxVibe is a unified Python application that provides instant speech-to-text tra
 1. **Clone and install:**
    ```bash
    git clone <repository-url>
-   cd voxvibe
+   cd whisperkey
    make all
    ```
 
 2. **Start using immediately:**
-   - VoxVibe will auto-start and appear in your system tray
+   - Whisper Key will auto-start and appear in your system tray
    - Hold **Win+Alt** and speak to transcribe
    - Text appears instantly where your cursor is
 
@@ -68,12 +68,12 @@ sudo pacman -S ydotool
 
 ### Automatic Installation (Recommended)
 
-The simplest way to install VoxVibe:
+The simplest way to install Whisper Key:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd voxvibe
+cd whisperkey
 
 # Install everything
 make all
@@ -81,7 +81,7 @@ make all
 
 This will:
 - ✅ Set up Python environment with `uv`
-- ✅ Install VoxVibe system-wide
+- ✅ Install Whisper Key system-wide
 - ✅ Configure auto-startup 
 - ✅ Set up system tray integration
 
@@ -100,7 +100,7 @@ uv build
 # 3. Install globally (choose one option)
 
 # Option A: Using pipx (recommended for system-wide installation)
-pipx install dist/voxvibe-*.whl
+pipx install dist/whisperkey-*.whl
 
 # Option B: Development mode (runs from source)
 # No additional installation needed
@@ -109,12 +109,12 @@ pipx install dist/voxvibe-*.whl
 
 # For pipx installation:
 mkdir -p ~/.config/autostart
-cat > ~/.config/autostart/voxvibe.desktop << EOF
+cat > ~/.config/autostart/whisperkey.desktop << EOF
 [Desktop Entry]
 Type=Application
-Name=VoxVibe
+Name=Whisper Key
 Comment=Voice transcription with global hotkeys
-Exec=voxvibe
+Exec=whisperkey
 Icon=microphone
 Terminal=false
 Hidden=false
@@ -122,17 +122,17 @@ X-GNOME-Autostart-enabled=true
 StartupNotify=false
 Categories=AudioVideo;Audio;
 EOF
-chmod +x ~/.config/autostart/voxvibe.desktop
+chmod +x ~/.config/autostart/whisperkey.desktop
 
 # For development mode:
 mkdir -p ~/.config/autostart
-cat > ~/.config/autostart/voxvibe.desktop << EOF
+cat > ~/.config/autostart/whisperkey.desktop << EOF
 [Desktop Entry]
 Type=Application
-Name=VoxVibe
+Name=Whisper Key
 Comment=Voice transcription with global hotkeys
-Exec=bash -c "cd /path/to/your/voxvibe/app && uv run python -m voxvibe"
-Path=/path/to/your/voxvibe/app
+Exec=bash -c "cd /path/to/your/whisperkey/app && uv run python -m whisperkey"
+Path=/path/to/your/whisperkey/app
 Icon=microphone
 Terminal=false
 Hidden=false
@@ -140,10 +140,10 @@ X-GNOME-Autostart-enabled=true
 StartupNotify=false
 Categories=AudioVideo;Audio;
 EOF
-chmod +x ~/.config/autostart/voxvibe.desktop
+chmod +x ~/.config/autostart/whisperkey.desktop
 ```
 
-**Note:** Replace `/path/to/your/voxvibe/app` with your actual installation path.
+**Note:** Replace `/path/to/your/whisperkey/app` with your actual installation path.
 
 ## ⚙️ System Setup
 
@@ -167,19 +167,19 @@ ydotool key ctrl+c
 Check that everything is working:
 
 ```bash
-# Check VoxVibe is installed
-voxvibe --version
+# Check Whisper Key is installed
+whisperkey --version
 
 # Check dependencies
-~/check-voxvibe-conflicts.sh  # (created during installation)
+~/check-whisperkey-conflicts.sh  # (created during installation)
 ```
 
 ## 🎮 Usage
 
 ### Basic Operation
 
-1. **Start VoxVibe** - It starts automatically on login, or run `voxvibe`
-2. **Look for tray icon** - VoxVibe appears in your system tray
+1. **Start Whisper Key** - It starts automatically on login, or run `whisperkey`
+2. **Look for tray icon** - Whisper Key appears in your system tray
 3. **Hold Win+Alt and speak** - Release when done speaking
 4. **Text appears instantly** - Transcribed text is pasted where your cursor is
 
@@ -197,7 +197,7 @@ voxvibe --version
 - **📚 Paste from History** - Access your last 15 transcriptions
 - **⭐ Last Transcription** - Quickly re-paste the most recent text
 - **ℹ️ About** - View version and hotkey information
-- **❌ Quit** - Exit VoxVibe
+- **❌ Quit** - Exit Whisper Key
 
 ### History Access
 
@@ -207,24 +207,24 @@ voxvibe --version
 
 ## 🔧 Management
 
-### Start/Stop VoxVibe
+### Start/Stop Whisper Key
 
 ```bash
 # Manual start
-voxvibe
+whisperkey
 
 # Stop (from tray menu or)
-pkill voxvibe
+pkill whisperkey
 
 # Check if running
-ps aux | grep voxvibe
+ps aux | grep whisperkey
 ```
 
 ### Disable Auto-start
 
 ```bash
 # Disable auto-start
-rm ~/.config/autostart/voxvibe.desktop
+rm ~/.config/autostart/whisperkey.desktop
 
 # Re-enable auto-start
 make all  # (re-run installation)
@@ -236,10 +236,10 @@ If you experience issues:
 
 ```bash
 # Run conflict checker (created during installation)
-~/check-voxvibe-conflicts.sh
+~/check-whisperkey-conflicts.sh
 
 # This will show:
-# - Running VoxVibe processes
+# - Running Whisper Key processes
 # - Old extension conflicts  
 # - Installation status
 ```
@@ -248,10 +248,10 @@ If you experience issues:
 
 ### Common Issues
 
-**VoxVibe doesn't start on login:**
+**Whisper Key doesn't start on login:**
 ```bash
 # Check autostart file exists
-ls -la ~/.config/autostart/voxvibe.desktop
+ls -la ~/.config/autostart/whisperkey.desktop
 
 # Recreate if missing
 make all
@@ -270,81 +270,28 @@ python3 -c "import sounddevice; print('PortAudio OK')"
 # Check ydotool is running
 systemctl status ydotool
 
-# Install and configure ydotool (see Wayland Setup)
+# Enable if needed
+sudo systemctl enable --now ydotool
 ```
 
-**Multiple tray icons:**
+**Multiple tray icons or conflicts:**
 ```bash
-# Clean up conflicts
-~/check-voxvibe-conflicts.sh
+# Check for conflicts
+~/check-whisperkey-conflicts.sh
 
-# Kill duplicate processes
-pkill voxvibe
-voxvibe  # Start fresh
+# Kill old processes
+pkill whisperkey
+whisperkey  # Start fresh
 ```
 
 ### Getting Help
 
-1. **Check the conflict detector:** `~/check-voxvibe-conflicts.sh`
-2. **View logs:** VoxVibe shows detailed logs when run from terminal
-3. **Verify dependencies:** Ensure PortAudio and ydotool are properly installed
+If you encounter issues:
+1. **Check the conflict detector:** `~/check-whisperkey-conflicts.sh`
+2. **View logs:** Whisper Key shows detailed logs when run from terminal
+3. **Check audio permissions** - ensure microphone access is enabled
 
 ## 🏗️ Development
 
 ### Project Structure
 ```
-voxvibe/
-├── app/                 # Main Python application
-│   ├── voxvibe/        # Source code
-│   ├── pyproject.toml  # Dependencies and metadata
-│   └── README.md       # Development notes
-├── extension/          # Legacy GNOME extension (deprecated)
-├── Makefile           # Build and installation automation
-└── README.md          # This file
-```
-
-### Development Setup
-
-```bash
-# Clone repository
-git clone <repository-url>
-cd voxvibe/app
-
-# Setup development environment  
-uv sync
-
-# Run in development mode
-uv run python -m voxvibe
-
-# Install development version
-make all
-```
-
-### Building Releases
-
-```bash
-# Update version in app/pyproject.toml
-# Then build and release
-make release
-```
-
-## 📝 What's New in v0.2.0
-
-### Major Changes
-- **🔄 Unified Architecture** - No more GNOME extension required
-- **⚡ Improved Performance** - Faster startup and transcription
-- **🎯 Enhanced Hotkeys** - More reliable key detection
-- **📱 Better Tray Integration** - Cleaner system tray experience
-- **🔧 Auto-startup** - Automatic system startup configuration
-- **🛠️ Conflict Detection** - Built-in tools to prevent installation issues
-
-### Breaking Changes
-- **Removed GNOME extension dependency** - VoxVibe is now a single Python application
-- **New installation method** - Use `make all` instead of separate component installation
-- **Updated hotkeys** - Simplified to Win+Alt (old shortcuts still work)
-
----
-
-**Enjoy ultra-fast voice transcription with VoxVibe! 🚀**
-
-For issues or feature requests, please visit the project repository.

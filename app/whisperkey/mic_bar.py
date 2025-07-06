@@ -66,7 +66,7 @@ class MicBar(QWidget):
         self.setFixedSize(120, 40)
         
         # Set window title for debugging
-        self.setWindowTitle("VoxVibe Mic Bar")
+        self.setWindowTitle("Whisper Key Mic Bar")
         
         # Initial opacity
         self.setWindowOpacity(0.8)

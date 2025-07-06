@@ -1,5 +1,5 @@
 [project]
-name = "voxvibe"
+name = "whisperkey"
 version = "0.2.0"
 description = "A voice dictation application for Linux that captures audio and transcribes it to text using Whisper"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-voxvibe = "voxvibe.main:main"
+whisperkey = "whisperkey.main:main"
 
 [build-system]
 requires = ["hatchling"]

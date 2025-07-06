@@ -1,8 +1,8 @@
-# VoxVibe Development Guide for Claude Code
+# WhisperKey Development Guide for Claude Code
 
 ## Project Overview
 
-**VoxVibe** is a voice dictation application for Linux that enables users to capture audio via keyboard shortcut and paste transcribed text into the previously focused application. The project consists of two main components:
+**WhisperKey** is a voice dictation application for Linux that enables users to capture audio via keyboard shortcut and paste transcribed text into the previously focused application. The project consists of two main components:
 
 1. **Python Application** (`app/`) - Qt6-based transcription app using Whisper AI
 2. **GNOME Shell Extension** (`extension/`) - JavaScript extension for window management and text pasting
@@ -21,7 +21,7 @@
 ## Project Structure
 
 ```
-voxvibe/
+WhisperKey/
 ├── README.md                    # Main project documentation
 ├── LICENSE                      # MIT License
 ├── CONTRIBUTING.md              # Development and contribution guidelines
@@ -38,7 +38,7 @@ voxvibe/
 │   ├── dist/                   # Build artifacts (wheels)
 │   ├── scripts/                # Development scripts
 │   │   └── test_gnome_extension.py
-│   └── voxvibe/                # Main Python package
+│   └── WhisperKey/                # Main Python package
 │       ├── __init__.py
 │       ├── __main__.py
 │       ├── main.py             # Application entry point
@@ -54,7 +54,7 @@ voxvibe/
 
 ## Key Components
 
-### Python Application (`app/voxvibe/`)
+### Python Application (`app/WhisperKey/`)
 
 **Entry Point**: `main.py`
 - Qt6-based GUI with recording interface
@@ -77,10 +77,10 @@ voxvibe/
 
 **Files**:
 - `extension.js`: Main extension logic with DBus interface
-- `metadata.json`: Extension metadata (UUID: `voxvibe@voxvibe.app`)
+- `metadata.json`: Extension metadata (UUID: `WhisperKey@WhisperKey.app`)
 
 **Features**:
-- Tracks focused windows before VoxVibe launches
+- Tracks focused windows before WhisperKey launches
 - Provides DBus interface for window focusing and text pasting
 - System tray indicator with microphone icon
 - Simulates keyboard input (Ctrl+V) for pasting
@@ -141,7 +141,7 @@ make check-version
 uv sync
 
 # Run application directly
-uv run python -m voxvibe
+uv run python -m WhisperKey
 
 # Run linters
 uv run ruff check
@@ -157,11 +157,11 @@ uv pip install --force-reinstall dist/*.whl
 
 ```bash
 # Manual installation
-mkdir -p ~/.local/share/gnome-shell/extensions/voxvibe@voxvibe.app
-cp -r extension/* ~/.local/share/gnome-shell/extensions/voxvibe@voxvibe.app/
+mkdir -p ~/.local/share/gnome-shell/extensions/WhisperKey@WhisperKey.app
+cp -r extension/* ~/.local/share/gnome-shell/extensions/WhisperKey@WhisperKey.app/
 
 # Enable extension
-gnome-extensions enable voxvibe@voxvibe.app
+gnome-extensions enable WhisperKey@WhisperKey.app
 
 # Reload GNOME Shell (X11 only)
 Alt+F2, type 'r', press Enter
@@ -171,7 +171,7 @@ For Wayland, you need to log out and log in again.
 
 ## Architecture & Communication Flow
 
-1. **User triggers** VoxVibe via keyboard shortcut
+1. **User triggers** WhisperKey via keyboard shortcut
 2. **DBus communication** stores currently focused window ID
 3. **Qt6 GUI** launches with recording interface
 4. **Audio recording** starts using sounddevice
@@ -181,8 +181,8 @@ For Wayland, you need to log out and log in again.
 
 ### DBus Interface
 
-**Service**: `org.gnome.Shell.Extensions.VoxVibe`
-**Object Path**: `/org/gnome/Shell/Extensions/VoxVibe`
+**Service**: `org.gnome.Shell.Extensions.WhisperKey`
+**Object Path**: `/org/gnome/Shell/Extensions/WhisperKey`
 
 **Methods**:
 - `GetFocusedWindow()` → returns window ID
@@ -193,14 +193,14 @@ For Wayland, you need to log out and log in again.
 ### `app/pyproject.toml`
 - Python project configuration
 - Dependencies and build settings
-- Entry point: `voxvibe = "voxvibe.main:main"`
+- Entry point: `WhisperKey = "WhisperKey.main:main"`
 
 ### `app/mise.toml`
 - Tool version management
 - Python 3.13.4, uv 0.7.13
 
 ### `extension/metadata.json`
-- Extension UUID: `voxvibe@voxvibe.app`
+- Extension UUID: `WhisperKey@WhisperKey.app`
 - GNOME Shell version compatibility: 48
 - Extension name and description
 
@@ -221,14 +221,14 @@ For Wayland, you need to log out and log in again.
 
 3. **Create keyboard shortcut**:
    - Open GNOME Settings → Keyboard → Custom Shortcuts
-   - Add shortcut: Command `voxvibe`, assign hotkey (e.g., Ctrl+Alt+V)
+   - Add shortcut: Command `WhisperKey`, assign hotkey (e.g., Ctrl+Alt+V)
 
 ### Making Changes
 
 1. **Python app changes**:
    ```bash
    cd app
-   # Make changes to voxvibe/* files
+   # Make changes to WhisperKey/* files
    uv sync  # if dependencies changed
    uv build && uv pip install --force-reinstall dist/*.whl
    ```
@@ -270,7 +270,7 @@ For Wayland, you need to log out and log in again.
 ## Testing
 
 ### Local Testing
-- **Python app**: Run directly with `uv run python -m voxvibe`
+- **Python app**: Run directly with `uv run python -m WhisperKey`
 - **Extension**: Use `scripts/test_gnome_extension.py` for testing
 - **Integration**: Test full workflow with keyboard shortcut
 - **Build validation**: Use `make dist` to test complete build process

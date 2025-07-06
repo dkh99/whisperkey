@@ -1,22 +1,22 @@
-david-hathiramani@david-hathiramani-ThinkPad-E16-Gen-1:~/david/voxvibe/app$ echo "🎯 Testing wi
+david-hathiramani@david-hathiramani-ThinkPad-E16-Gen-1:~/david/WhisperKey/app$ echo "🎯 Testing wi
 th completely fresh install..." && echo "📝 Please do 2 recordings with speech in both - should
  see NEW log messages" && echo "⏰ Starting in 3 seconds..." && sleep 3 && timeout 30 uv run py
-david-hathiramani@david-hathiramani-ThinkPad-E16-Gen-1:~/david/voxvibe/app$ echo "🎯 Testing wi
+david-hathiramani@david-hathiramani-ThinkPad-E16-Gen-1:~/david/WhisperKey/app$ echo "🎯 Testing wi
 th completely fresh install..." && echo "📝 Please do 2 recordings with speech in both - should
  see NEW log messages" && echo "⏰ Starting in 3 seconds..." && sleep 3 && timeout 30 uv run py
-thon -m voxvibe
+thon -m WhisperKey
 🎯 Testing with completely fresh install...
 📝 Please do 2 recordings with speech in both - should see NEW log messages
 ⏰ Starting in 3 seconds...
 Loading Whisper model: base
 Model loaded successfully on cpu with int8
-📚 History database initialized: /home/david-hathiramani/.cache/voxvibe/history.sqlite
+📚 History database initialized: /home/david-hathiramani/.cache/WhisperKey/history.sqlite
 ✅ DBus window manager initialized
 🔊 Sound effects initialized
 🎯 System tray icon initialized
 🎯 Hotkey service started
-🚀 VoxVibe initialized successfully
-🎯 VoxVibe is running...
+🚀 WhisperKey initialized successfully
+🎯 WhisperKey is running...
 Hotkeys:
   • Alt+Space: Hold to talk
   • Win+Alt: Hold to talk

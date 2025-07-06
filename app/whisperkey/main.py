@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VoxVibe main application with enhanced hotkey service and persistent UI."""
+"""Whisper Key main application with enhanced hotkey service and persistent UI."""
 
 import logging
 import signal
@@ -18,7 +18,7 @@ from .sound_fx import SoundFX
 from .streaming_transcriber import StreamingTranscriber
 from .theme import apply_theme
 from .transcriber import Transcriber
-from .tray_icon import VoxVibeTrayIcon
+from .tray_icon import WhisperKeyTrayIcon
 from .window_manager import WindowManager
 
 
@@ -120,8 +120,8 @@ class RecordingThread(QThread):
         # Note: tray_icon updates handled by main app, not recording thread
 
 
-class VoxVibeApp:
-    """Main VoxVibe application with all components integrated"""
+class WhisperKeyApp:
+    """Main Whisper Key application with all components integrated"""
     
     def __init__(self, openai_api_key=None, settings=None):
         # Core components
@@ -131,7 +131,7 @@ class VoxVibeApp:
         
         # UI components
         # mic_bar removed - using tray icon for status
-        self.tray_icon: VoxVibeTrayIcon = None
+        self.tray_icon: WhisperKeyTrayIcon = None
         self.sound_fx: SoundFX = None
         
         # Services
@@ -158,7 +158,7 @@ class VoxVibeApp:
         # Create Qt application
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)  # Keep running in tray
-        self.app.setApplicationName("VoxVibe")
+        self.app.setApplicationName("Whisper Key")
         
         # Apply theme
         apply_theme(self.app)
@@ -181,7 +181,7 @@ class VoxVibeApp:
         
         # Initialize system tray
         if QSystemTrayIcon.isSystemTrayAvailable():
-            self.tray_icon = VoxVibeTrayIcon(self.history, self.window_manager)
+            self.tray_icon = WhisperKeyTrayIcon(self.history, self.window_manager)
             self.setup_tray_connections()
         else:
             print("⚠️ System tray not available")
@@ -204,7 +204,7 @@ class VoxVibeApp:
         self.setup_hotkey_callbacks()
         self.hotkey_service.start()
         
-        print("🚀 VoxVibe initialized successfully")
+        print("🚀 Whisper Key initialized successfully")
     
     def setup_hotkey_callbacks(self):
         """Setup hotkey service callbacks"""
@@ -252,7 +252,7 @@ class VoxVibeApp:
         
         import traceback
         print("🛑 Stopping recording...")
-        print("🔍 STACK TRACE - WHO CALLED VoxVibeApp.stop_recording:")
+        print("🔍 STACK TRACE - WHO CALLED WhisperKeyApp.stop_recording:")
         for line in traceback.format_stack()[:-1]:  # Exclude current frame
             print(f"    {line.strip()}")
         
@@ -322,7 +322,12 @@ class VoxVibeApp:
     def on_transcription_complete_with_context(self, text: str, confidence: float, context_type: str):
         """Handle completed transcription with context awareness"""
         print(f"✅ Transcription complete with context '{context_type}': '{text}'")
-        
+
+        # Append disclaimer if LLM is disabled
+        if not self.transcriber.is_llm_enabled():
+            disclaimer = "\n\n(This was dictated. If some words look odd, it might be because they sound like something else you know the sound of.)"
+            text = text.rstrip() + disclaimer
+
         # Update tray icon to show transcription is complete
         if self.tray_icon:
             self.tray_icon.update_transcription_status(False)
@@ -393,13 +398,13 @@ class VoxVibeApp:
                     print(f"✅ Text pasted successfully with {paste_method}")
                     if self.tray_icon:
                         self.tray_icon.reset_to_ready()
-                        self.tray_icon.show_message("VoxVibe", "Text pasted successfully!", timeout=2000)
+                        self.tray_icon.show_message("Whisper Key", "Text pasted successfully!", timeout=2000)
                 else:
                     paste_display = paste_method.replace('+', '+').upper()
                     print(f"❌ Auto-paste failed - please press {paste_display}")
                     if self.tray_icon:
                         self.tray_icon.reset_to_ready()
-                        self.tray_icon.show_message("VoxVibe - Paste Ready", 
+                        self.tray_icon.show_message("Whisper Key - Paste Ready", 
                                                   f"Text copied to clipboard.\nPress {paste_display} to paste.", 
                                                   timeout=5000)
             except Exception as e:
@@ -454,7 +459,7 @@ class VoxVibeApp:
     
     def quit_application(self):
         """Quit the application"""
-        print("👋 Shutting down VoxVibe...")
+        print("👋 Shutting down Whisper Key...")
         
         # Stop services
         if self.hotkey_service:
@@ -476,7 +481,7 @@ class VoxVibeApp:
         if not self.app:
             raise RuntimeError("Application not initialized")
         
-        print("🎯 VoxVibe is running...")
+        print("🎯 Whisper Key is running...")
         print("Hotkeys:")
         print("  • Win+Alt: Hold to talk")
         
@@ -509,8 +514,8 @@ def main():
     """Main entry point"""
     try:
         # Load settings
-        from .settings_dialog import VoxVibeSettings
-        settings = VoxVibeSettings()
+        from .settings_dialog import WhisperKeySettings
+        settings = WhisperKeySettings()
         
         # Get OpenAI API key from settings (which checks environment as fallback)
         openai_api_key = settings.get_openai_api_key()
@@ -525,7 +530,7 @@ def main():
             print("⚠️ No OpenAI API key found - LLM post-processing disabled")
             print("   Use 'Settings' in the tray menu to configure your API key")
         
-        app = VoxVibeApp(openai_api_key=openai_api_key, settings=settings)
+        app = WhisperKeyApp(openai_api_key=openai_api_key, settings=settings)
         app.initialize()
         return app.run()
     except KeyboardInterrupt:

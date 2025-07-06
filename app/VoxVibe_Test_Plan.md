@@ -1,6 +1,6 @@
-# VoxVibe v0.2 Testing Checklist
+# WhisperKey v0.2 Testing Checklist
 
-> **Instructions:** Run `uv run python -m voxvibe.main` in terminal, then work through each test systematically. Mark ✅ for pass, ❌ for fail, ⚠️ for partial.
+> **Instructions:** Run `uv run python -m WhisperKey.main` in terminal, then work through each test systematically. Mark ✅ for pass, ❌ for fail, ⚠️ for partial.
 
 ---
 
@@ -198,5 +198,5 @@
 ---
 
 *Testing completed on: ________________*  
-*VoxVibe version: 0.2.0*  
+*WhisperKey version: 0.2.0*  
 *Tester: ________________* 

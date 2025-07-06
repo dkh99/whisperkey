@@ -70,25 +70,25 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: VoxVibe v${{ steps.version.outputs.VERSION }}
+          name: WhisperKey v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            dist/voxvibe-*.tar.gz
+            dist/WhisperKey-*.tar.gz
           body: |
-            ## VoxVibe v${{ steps.version.outputs.VERSION }}
+            ## WhisperKey v${{ steps.version.outputs.VERSION }}
             
             ### Installation
             
             #### From Release Package (Recommended)
-            1. Download `voxvibe-${{ steps.version.outputs.VERSION }}.tar.gz`
-            2. Extract: `tar -xzf voxvibe-${{ steps.version.outputs.VERSION }}.tar.gz`
-            3. Run: `cd voxvibe-${{ steps.version.outputs.VERSION }} && ./install.sh`
+            1. Download `WhisperKey-${{ steps.version.outputs.VERSION }}.tar.gz`
+            2. Extract: `tar -xzf WhisperKey-${{ steps.version.outputs.VERSION }}.tar.gz`
+            3. Run: `cd WhisperKey-${{ steps.version.outputs.VERSION }} && ./install.sh`
             
             #### From Python Wheel
             1. Download the `.whl` file
-            2. Install: `pipx install voxvibe-${{ steps.version.outputs.VERSION }}-*.whl`
+            2. Install: `pipx install WhisperKey-${{ steps.version.outputs.VERSION }}-*.whl`
             3. Manually install the GNOME extension from the release package
             
             ### Requirements

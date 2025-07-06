@@ -1,10 +1,10 @@
-# VoxVibe – Roadmap to Wispr Flow-Level UX
+# WhisperKey – Roadmap to Wispr Flow-Level UX
 
-> This document analyses the current VoxVibe code-base and lists the **functional, UI and technical requirements** needed to replicate the standout desktop experience of Wispr Flow.
+> This document analyses the current WhisperKey code-base and lists the **functional, UI and technical requirements** needed to replicate the standout desktop experience of Wispr Flow.
 
 ---
 
-## 1. Snapshot of Current VoxVibe Capabilities *(v0.2 - MAJOR UPDATE)*
+## 1. Snapshot of Current WhisperKey Capabilities *(v0.2 - MAJOR UPDATE)*
 
 | Area | Implemented Today | Key Source Files |
 |------|------------------|------------------|
@@ -18,7 +18,7 @@
 | System tray | **✅ NEW**: Microphone icon with "Paste Last" & history access | `tray_icon.py` |
 | Launch flow | **✅ ENHANCED**: Background service with comprehensive error handling | `main.py` |
 
-> **Major Achievement**: VoxVibe now delivers **Wispr Flow-level UX** with reliable multi-recording sessions, grace periods for brief key releases, and comprehensive desktop integration!
+> **Major Achievement**: WhisperKey now delivers **Wispr Flow-level UX** with reliable multi-recording sessions, grace periods for brief key releases, and comprehensive desktop integration!
 
 ---
 
@@ -94,7 +94,7 @@
 ---
 
 ## 5. 🎉 **Milestone Achievement**
-- **✅ v0.2 COMPLETE** - VoxVibe now matches Wispr Flow's core UX!
+- **✅ v0.2 COMPLETE** - WhisperKey now matches Wispr Flow's core UX!
 - **🎯 v0.3 Target** - Polish, settings, and advanced features
 - **📅 Timeline** - v0.3 planning phase, ~2-3 weeks for implementation
 
@@ -111,4 +111,4 @@
 
 ---
 
-*Prepared for the VoxVibe maintainers – June 2025*
+*Prepared for the WhisperKey maintainers – June 2025*

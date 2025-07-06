@@ -1,5 +1,5 @@
 def main():
-    print("Hello from voxvibe!")
+    print("Hello from whisperkey!")
 
 
 if __name__ == "__main__":

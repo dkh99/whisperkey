@@ -1,4 +1,4 @@
-"""System tray icon for VoxVibe with history access and quick actions."""
+"""System tray icon for Whisper Key with history access and quick actions."""
 
 import os
 import sys
@@ -13,7 +13,7 @@ from .history import HistoryEntry, TranscriptionHistory
 from .window_manager import WindowManager
 
 
-class VoxVibeTrayIcon(QSystemTrayIcon):
+class WhisperKeyTrayIcon(QSystemTrayIcon):
     # Signals
     paste_requested = pyqtSignal(str)  # text to paste
     quit_requested = pyqtSignal()
@@ -34,7 +34,7 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         
         # Set initial icon
         self.setIcon(self.icons['ready'])
-        self.setToolTip("VoxVibe - Voice Transcription")
+        self.setToolTip("Whisper Key - Voice Transcription")
         
         # Setup context menu
         self.setup_menu()
@@ -203,7 +203,7 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         self.menu.addAction(settings_action)
         
         # About
-        about_action = QAction("ℹ️ About VoxVibe", self)
+        about_action = QAction("ℹ️ About Whisper Key", self)
         about_action.triggered.connect(self.show_about)
         self.menu.addAction(about_action)
         
@@ -411,8 +411,8 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         """Show about dialog centered on screen"""
         # Create message box
         msg_box = QMessageBox()
-        msg_box.setWindowTitle("About VoxVibe")
-        msg_box.setText("VoxVibe v0.2.0\n\n"
+        msg_box.setWindowTitle("About Whisper Key")
+        msg_box.setText("Whisper Key v0.2.0\n\n"
                        "Voice transcription with global hotkeys.\n"
                        "Fast, reliable speech-to-text for Linux.\n\n"
                        "Hotkeys:\n"
@@ -448,11 +448,11 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
     def show_settings(self):
         """Show settings dialog"""
         try:
-            from .settings_dialog import SettingsDialog, VoxVibeSettings
+            from .settings_dialog import SettingsDialog, WhisperKeySettings
             
             # Create settings if needed
             if not hasattr(self, 'settings'):
-                self.settings = VoxVibeSettings()
+                self.settings = WhisperKeySettings()
             
             # Create and show dialog (use None as parent since tray icon isn't a QWidget)
             dialog = SettingsDialog(self.settings, None)
@@ -502,13 +502,13 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
         """Update tray icon status based on recording and transcription state"""
         if recording:
             self.setIcon(self.icons['recording'])
-            tooltip = f"VoxVibe - Recording ({mode})"
+            tooltip = f"Whisper Key - Recording ({mode})"
         elif transcribing:
             self.setIcon(self.icons['transcribing'])
-            tooltip = "VoxVibe - Transcribing..."
+            tooltip = "Whisper Key - Transcribing..."
         else:
             self.setIcon(self.icons['ready'])
-            tooltip = "VoxVibe - Ready"
+            tooltip = "Whisper Key - Ready"
         
         self.setToolTip(tooltip)
         
@@ -523,12 +523,12 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
             if partial_text:
                 # Show partial results in tooltip
                 preview = partial_text[:30] + "..." if len(partial_text) > 30 else partial_text
-                tooltip = f"VoxVibe - 🚀 Transcribing: \"{preview}\""
+                tooltip = f"Whisper Key - 🚀 Transcribing: \"{preview}\""
             else:
-                tooltip = "VoxVibe - 🚀 Transcribing..."
+                tooltip = "Whisper Key - 🚀 Transcribing..."
         else:
             self.setIcon(self.icons['ready'])  # Back to microphone
-            tooltip = "VoxVibe - Ready"
+            tooltip = "Whisper Key - Ready"
         
         self.setToolTip(tooltip)
         print(f"🎯 Icon updated: {'rocket' if transcribing else 'microphone'} - {tooltip}")
@@ -540,13 +540,13 @@ class VoxVibeTrayIcon(QSystemTrayIcon):
     def show_paste_ready(self):
         """Show eye icon when ready to paste"""
         self.setIcon(self.icons['pasting'])
-        self.setToolTip("VoxVibe - 👁️ Ready to paste!")
+        self.setToolTip("Whisper Key - 👁️ Ready to paste!")
         print("🎯 Icon updated: eye - Ready to paste!")
     
     def reset_to_ready(self):
         """Reset icon to ready state"""
         self.setIcon(self.icons['ready'])
-        self.setToolTip("VoxVibe - Ready")
+        self.setToolTip("Whisper Key - Ready")
         print("🎯 Icon updated: microphone - Ready")
     
     def _convert_to_local_time(self, utc_datetime: datetime) -> datetime:

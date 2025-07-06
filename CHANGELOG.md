@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to VoxVibe will be documented in this file.
+All notable changes to WhisperKey will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -52,4 +52,4 @@ When preparing a new release, copy and fill out this template:
 
 - [Keep a Changelog](https://keepachangelog.com/)
 - [Semantic Versioning](https://semver.org/)
-- [VoxVibe Repository](https://github.com/your-username/voxvibe)
+- [WhisperKey Repository](https://github.com/your-username/WhisperKey)

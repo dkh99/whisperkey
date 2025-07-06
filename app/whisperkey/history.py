@@ -1,4 +1,4 @@
-"""Transcription history management for VoxVibe.
+"""Transcription history management for Whisper Key.
 
 Provides SQLite-based storage for recent transcriptions with safety net functionality.
 """
@@ -22,8 +22,8 @@ class HistoryEntry:
 class TranscriptionHistory:
     def __init__(self, db_path: Optional[Path] = None):
         if db_path is None:
-            # Default to ~/.cache/voxvibe/history.sqlite
-            cache_dir = Path.home() / ".cache" / "voxvibe"
+            # Default to ~/.cache/whisperkey/history.sqlite
+            cache_dir = Path.home() / ".cache" / "whisperkey"
             cache_dir.mkdir(parents=True, exist_ok=True)
             db_path = cache_dir / "history.sqlite"
         

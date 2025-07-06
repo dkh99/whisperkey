@@ -1,4 +1,4 @@
-"""Sound effects module for VoxVibe audio feedback.
+"""Sound effects module for Whisper Key audio feedback.
 
 Provides non-blocking ping sounds for recording start/stop events.
 """

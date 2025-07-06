@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Settings dialog for VoxVibe configuration."""
+"""Settings dialog for Whisper Key configuration."""
 
 import json
 import os
@@ -27,11 +27,11 @@ from PyQt6.QtWidgets import (
 )
 
 
-class VoxVibeSettings:
-    """Configuration manager for VoxVibe settings."""
+class WhisperKeySettings:
+    """Configuration manager for Whisper Key settings."""
     
     def __init__(self):
-        self.config_dir = Path.home() / ".config" / "voxvibe"
+        self.config_dir = Path.home() / ".config" / "whisperkey"
         self.config_file = self.config_dir / "settings.json"
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self._settings = self._load_settings()
@@ -79,12 +79,13 @@ class VoxVibeSettings:
     
     def _get_default_prompts(self) -> Dict[str, Dict[str, str]]:
         """Get default prompts for each context type."""
-        # Get base prompts (either custom or default)
-        base_prompt = self.get_base_prompt()
-        base_instructions = self.get_base_instructions()
+        # Get base prompts (use defaults during initialization)
+        base_prompts = self._get_default_base_prompts()
+        base_prompt = base_prompts["base_prompt"]
+        base_instructions = base_prompts["base_instructions"]
         
         return {
-            "base": self._get_default_base_prompts(),
+            "base": base_prompts,
             "code_window": {
                 "system_prompt": f"{base_prompt} You format text for direct insertion into code editors or IDEs, keeping it concise and code-appropriate.",
                 "instructions": f"""{base_instructions}
@@ -230,14 +231,14 @@ class VoxVibeSettings:
 
 
 class SettingsDialog(QDialog):
-    """Settings dialog for VoxVibe."""
+    """Settings dialog for Whisper Key."""
     
     settings_changed = pyqtSignal()  # Emitted when settings are saved
     
-    def __init__(self, settings: VoxVibeSettings, parent=None):
+    def __init__(self, settings: WhisperKeySettings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("VoxVibe Settings")
+        self.setWindowTitle("Whisper Key Settings")
         self.setModal(True)
         self.setMinimumSize(600, 500)
         

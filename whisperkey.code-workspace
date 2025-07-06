@@ -9,10 +9,10 @@
 		"version": "2.0.0",
 		"tasks": [
 			{
-				"label": "Run VoxVibe",
+				"label": "Run Whisper Key",
 				"type": "shell",
 				"command": "uv",
-				"args": ["run", "python", "-m", "voxvibe"],
+				"args": ["run", "python", "-m", "whisperkey"],
 				"options": {
 					"cwd": "${workspaceFolder}/app"
 				},
@@ -29,10 +29,10 @@
 					"clear": true
 				},
 				"problemMatcher": [],
-				"detail": "Run VoxVibe directly without rebuilding"
+				"detail": "Run Whisper Key directly without rebuilding"
 			},
 			{
-				"label": "Upgrade VoxVibe",
+				"label": "Upgrade Whisper Key",
 				"type": "shell",
 				"command": "make",
 				"args": ["all"],
@@ -49,7 +49,7 @@
 					"clear": false
 				},
 				"problemMatcher": [],
-				"detail": "Rebuild and reinstall VoxVibe app and extension"
+				"detail": "Rebuild and reinstall Whisper Key app and extension"
 			}
 		]
 	}

@@ -1,19 +1,80 @@
 #!/bin/bash
-set -e
-echo "Installing VoxVibe {{VERSION}}..."
-pipx install --force app/*.whl
+echo "Installing Whisper Key {{VERSION}}..."
 
-# If the extension already exists, disable it, remove the directory and then install
+# Clean up old VoxVibe installations to prevent conflicts
+echo "🧹 Cleaning up old VoxVibe installations..."
 
-if [ -d "$HOME/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}" ]; then
-    echo "Disabling and removing existing extension..."
-    gnome-extensions disable {{EXTENSION_UUID}}
-    rm -rf "$HOME/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}"
+# Remove old VoxVibe autostart files
+if [ -f ~/.config/autostart/voxvibe.desktop ]; then
+    echo "  Removing old VoxVibe autostart file..."
+    rm -f ~/.config/autostart/voxvibe.desktop
 fi
 
-echo "Installing extension..."
-mkdir -p "$HOME/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}"
-cp -r extension/* "$HOME/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}/"
-gnome-extensions enable {{EXTENSION_UUID}} || echo "Please enable VoxVibe extension manually"
+# Remove old VoxVibe pipx installation
+if pipx list | grep -q "package voxvibe"; then
+    echo "  Removing old VoxVibe pipx installation..."
+    pipx uninstall voxvibe || true
+fi
 
-echo "Installation complete. Please reload GNOME Shell or log out/in."
+# Remove old VoxVibe GNOME extensions
+if [ -d ~/.local/share/gnome-shell/extensions/voxvibe@voxvibe.app ]; then
+    echo "  Removing old VoxVibe GNOME extension..."
+    rm -rf ~/.local/share/gnome-shell/extensions/voxvibe@voxvibe.app
+fi
+
+echo "✅ Cleanup complete"
+
+# Install WhisperKey
+echo "📦 Installing WhisperKey..."
+
+# Check if pipx is available
+if command -v pipx >/dev/null 2>&1; then
+    echo "Installing Python application with pipx..."
+    pipx install app/*.whl
+else
+    echo "pipx not found, installing with pip..."
+    pip install --user app/*.whl
+fi
+
+# Create autostart file
+echo "🚀 Setting up autostart..."
+AUTOSTART_DIR="$HOME/.config/autostart"
+AUTOSTART_FILE="$AUTOSTART_DIR/whisperkey.desktop"
+
+# Create autostart directory if it doesn't exist
+mkdir -p "$AUTOSTART_DIR"
+
+# Create desktop file
+cat > "$AUTOSTART_FILE" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=WhisperKey
+Comment=Voice dictation application for Linux
+Exec=whisperkey
+Icon=audio-input-microphone
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+StartupNotify=false
+EOF
+
+# Make the autostart file executable
+chmod +x "$AUTOSTART_FILE"
+
+# Install GNOME extension (optional)
+echo "🔌 Installing GNOME extension (optional)..."
+mkdir -p ~/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}
+cp -r extension/* ~/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}/
+
+echo "Enabling extension..."
+gnome-extensions enable {{EXTENSION_UUID}} || echo "Please enable Whisper Key extension manually"
+
+echo ""
+echo "✅ Installation complete!"
+echo ""
+echo "🚀 WhisperKey is now installed and ready to use."
+echo "   • The application will start automatically on login"
+echo "   • Look for the microphone icon in your system tray"
+echo "   • Use Win+Alt hotkey to start dictating"
+echo ""
+echo "Please log out and back in to activate the extension and autostart."

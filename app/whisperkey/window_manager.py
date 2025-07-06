@@ -189,7 +189,7 @@ class WindowManager:
                             print(f"❌ Could not find window with ID: {window_id}")
                         
             # If we can't parse window data or find the specific window,
-            # try to focus the most recent non-voxvibe window
+                            # try to focus the most recent non-whisperkey window
             js_code = """
                 let windows = global.get_window_actors();
                 for (let i = 0; i < windows.length; i++) {
@@ -210,7 +210,7 @@ class WindowManager:
             if reply.type() != QDBusMessage.MessageType.ErrorMessage:
                 result = reply.arguments()
                 if result and len(result) >= 2 and result[0]:
-                    print("✅ Focused most recent non-voxvibe window")
+                    print("✅ Focused most recent non-whisperkey window")
                     return True
                 
         except Exception as e:
@@ -319,7 +319,7 @@ class WindowManager:
             paste_display = paste_method.replace('+', '+').upper()
             subprocess.run([
                 'notify-send', 
-                'VoxVibe - Paste Ready', 
+                                    'Whisper Key - Paste Ready', 
                 f'Text transcribed and copied to clipboard.\nPress {paste_display} to paste.',
                 '--icon=input-keyboard',
                 '--urgency=normal',

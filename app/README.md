@@ -1,6 +1,6 @@
-# VoxVibe v0.2 - Enhanced Voice Transcription
+# WhisperKey v0.2 - Enhanced Voice Transcription
 
-VoxVibe is a powerful voice dictation application for Linux with global hotkeys, persistent floating UI, and intelligent transcription history.
+WhisperKey is a powerful voice dictation application for Linux with global hotkeys, persistent floating UI, and intelligent transcription history.
 
 ## ✨ Features
 
@@ -43,12 +43,12 @@ make install
 
 ### Running
 ```bash
-# Start VoxVibe (runs in background)
-voxvibe
+# Start WhisperKey (runs in background)
+WhisperKey
 
 # Or run in development mode
 cd app/
-uv run python -m voxvibe.main
+uv run python -m WhisperKey.main
 ```
 
 ### Usage
@@ -74,7 +74,7 @@ cd app/
 uv sync
 
 # Run tests
-python test_voxvibe.py
+python test_WhisperKey.py
 
 # Run linters  
 uv run ruff check
@@ -93,9 +93,9 @@ uv build
 
 ## 🎛️ Configuration
 
-VoxVibe stores data in standard Linux locations:
-- **History database**: `~/.cache/voxvibe/history.sqlite`
-- **Sound effects**: `app/voxvibe/sounds/`
+WhisperKey stores data in standard Linux locations:
+- **History database**: `~/.cache/WhisperKey/history.sqlite`
+- **Sound effects**: `app/WhisperKey/sounds/`
 - **Logs**: Console output (can be redirected)
 
 ## 🐛 Troubleshooting
@@ -109,7 +109,7 @@ VoxVibe stores data in standard Linux locations:
 ### Debug Mode
 ```bash
 # Run with verbose output
-PYTHONPATH=. python -m voxvibe.main
+PYTHONPATH=. python -m WhisperKey.main
 ```
 
 ## 📝 Changelog

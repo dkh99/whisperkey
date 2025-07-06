@@ -1,166 +1,123 @@
-# Root Makefile for VoxVibe Monorepo
+# Root Makefile for Whisper Key Monorepo
 
-.PHONY: all app install extension lint clean dist package release check-tools check-version help
-
-# Variables
-EXTENSION_UUID := voxvibe@voxvibe.app
-EXTENSION_INSTALL_PATH := $(HOME)/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)
+# Configuration
+VERSION := 0.2.0
+EXTENSION_UUID := whisperkey@whisperkey.app
 PYTHON_APP_DIR := app
-DIST_DIR := dist
 BUILD_DIR := build
+DIST_DIR := dist
 
+# Detect if we're in the app directory
+IS_IN_APP := $(if $(wildcard pyproject.toml),1,0)
 
+# Main targets
+.PHONY: all help clean check-tools python extension package dist lint check-version
 
-# Extract version from pyproject.toml
-VERSION := $(shell cd $(PYTHON_APP_DIR) && python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+all: check-tools python
+	@echo ""
+	@echo "✅ Installation complete!"
+	@echo ""
+	@echo "🚀 Whisper Key is now installed and ready to use."
+	@echo "   • The application will start automatically on login"
+	@echo "   • Look for the microphone icon in your system tray"
+	@echo "   • Use Win+Alt hotkey to start dictating"
+	@echo ""
+	@echo "\nSetup complete. Whisper Key standalone application is ready."
+	@echo "The application will auto-start on next login."
 
-# Git information
-GIT_COMMIT := $(shell git rev-parse --short HEAD)
-GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null || echo "")
-GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-
-# Default target - standalone app only (no GNOME extension)
-all: app install
-	@echo "\nSetup complete. VoxVibe standalone application is ready."
-
-# Full setup including GNOME extension
-all-with-extension: app install extension
-	@echo "\nSetup complete. Please create a keyboard shortcut as described in README.md."
-
-# Help target
 help:
-	@echo "VoxVibe Makefile Commands:"
+	@echo ""
+	@echo "Whisper Key Makefile Commands:"
+	@echo ""
+	@echo "Main Commands:"
+	@echo "  all          - Setup standalone Whisper Key application (recommended)"
+	@echo "  python       - Install Python app only"
+	@echo "  extension    - Install GNOME extension only (optional)"
+	@echo "  clean        - Remove build artifacts"
+	@echo "  package      - Create release package"
+	@echo "  dist         - Create distribution build with linting"
 	@echo ""
 	@echo "Development:"
-	@echo "  all          - Setup standalone VoxVibe application (recommended)"
-	@echo "  all-with-extension - Setup with GNOME Shell extension"
-	@echo "  app          - Build Python application"
-	@echo "  install      - Install Python application locally"
-	@echo "  extension    - Install GNOME Shell extension"
-	@echo "  lint         - Run code linters"
-	@echo "  clean        - Clean build artifacts"
-	@echo ""
-	@echo "Distribution:"
-	@echo "  dist         - Create distribution packages"
-	@echo "  package      - Create release package with all components"
-	@echo "  release      - Tag and prepare release (requires clean working tree)"
-	@echo ""
-	@echo "Utilities:"
+	@echo "  lint         - Run linting and validation"
 	@echo "  check-tools  - Verify required tools are installed"
-	@echo "  check-version - Display version information"
-	@echo "  help         - Show this help message"
+	@echo "  check-version - Show current version info"
+	@echo ""
 
-# Tool validation
+# Check required tools
 check-tools:
-	@echo "--> Checking required tools..."
-	@command -v uv >/dev/null 2>&1 || { echo "ERROR: uv is not installed"; exit 1; }
-	@command -v pipx >/dev/null 2>&1 || echo "WARNING: pipx is not installed"
-	@command -v python >/dev/null 2>&1 || { echo "ERROR: python is not installed"; exit 1; }
-	@command -v git >/dev/null 2>&1 || { echo "ERROR: git is not installed"; exit 1; }
-	@command -v gnome-extensions >/dev/null 2>&1 || { echo "WARNING: gnome-extensions not found (extension installation may fail)"; }
-	@echo "All required tools are available."
+	@echo "🔍 Checking required tools..."
+	@command -v uv >/dev/null 2>&1 || { echo "❌ uv not found. Install from https://astral.sh/uv/install.sh"; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { echo "❌ python3 not found"; exit 1; }
+	@echo "✅ All required tools found"
 
-# Version information
+# Version information  
 check-version:
-	@echo "VoxVibe Version Information:"
-	@echo "  Version: $(VERSION)"
-	@echo "  Git Commit: $(GIT_COMMIT)"
-	@echo "  Git Branch: $(GIT_BRANCH)"
-	@echo "  Git Tag: $(if $(GIT_TAG),$(GIT_TAG),<none>)"
+	@echo ""
+	@echo "Whisper Key Version Information:"
+	@echo "  Project Version: $(VERSION)"
+	@echo "  Extension UUID: $(EXTENSION_UUID)"
+	@echo "  Python App Dir: $(PYTHON_APP_DIR)"
+	@echo ""
 
-# Target to set up the Python application environment and build it.
-app: check-tools
-	@echo "--> Setting up Python application..."
-	@cd $(PYTHON_APP_DIR) && uv sync && uv build
-
-# Target to install the Python application wheel.
-install:
-	@echo "--> Installing Python application..."
+# Python application
+python: check-tools
+	@echo "📦 Installing Python application..."
+	cd $(PYTHON_APP_DIR) && uv sync
+	cd $(PYTHON_APP_DIR) && uv build
+	# Install using pipx for global availability
 	@if command -v pipx >/dev/null 2>&1; then \
-		pipx install --force app/dist/*.whl; \
-		echo "Python application installed. The 'voxvibe' command should now be available."; \
+		echo "📦 Installing globally with pipx..."; \
+		pipx install --force $(PYTHON_APP_DIR)/dist/*.whl; \
+		echo "Python application installed. The 'whisperkey' command should now be available."; \
 	else \
-		echo "WARNING: pipx is not installed. Please install the wheel manually from app/dist/."; \
+		echo "⚠️  pipx not found. Install manually: pip install $(PYTHON_APP_DIR)/dist/*.whl"; \
 	fi
+	# Create autostart file
+	@./create_autostart.sh
 
-# Target to install and enable the GNOME Shell extension.
+# GNOME extension (optional)
 extension:
-	@echo "--> Installing GNOME Shell extension..."
-	@mkdir -p $(EXTENSION_INSTALL_PATH)
-	@cp -r extension/* $(EXTENSION_INSTALL_PATH)/
-	@echo "Extension files copied to $(EXTENSION_INSTALL_PATH)"
-	@gnome-extensions enable $(EXTENSION_UUID) || echo "Could not enable extension automatically. Please enable 'VoxVibe' in the GNOME Extensions app."
-	@echo "IMPORTANT: You may need to reload GNOME Shell (Alt+F2, 'r', Enter on X11; or log out/in on Wayland)."
+	@echo "🔌 Installing GNOME extension..."
+	@mkdir -p ~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)
+	@cp -r extension/* ~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)/
+	@echo "Extension installed. Please log out and back in, then enable the extension."
+	@gnome-extensions enable $(EXTENSION_UUID) || echo "Could not enable extension automatically. Please enable 'Whisper Key' in the GNOME Extensions app."
 
-# Enhanced linting with validation
-lint: check-tools
-	@echo "--> Running linters..."
-	@cd $(PYTHON_APP_DIR) && uv run ruff check
-	@echo "--> Validating extension metadata..."
-	@python -c "import json; json.load(open('extension/metadata.json'))" || { echo "ERROR: Invalid extension metadata.json"; exit 1; }
-	@echo "All linting checks passed."
+# Clean build artifacts
+clean:
+	@echo "🧹 Cleaning build artifacts..."
+	@rm -rf $(BUILD_DIR) $(DIST_DIR)
+	@cd $(PYTHON_APP_DIR) && rm -rf dist/ build/ *.egg-info/ .venv/
+	@echo "✅ Clean complete"
 
-# Distribution targets
-dist: clean check-tools lint
-	@echo "--> Creating distribution packages..."
+# Create release package  
+package: clean python
+	@echo "📦 Creating release package..."
+	@mkdir -p $(BUILD_DIR)/whisperkey-$(VERSION)
+	@mkdir -p $(BUILD_DIR)/whisperkey-$(VERSION)/app
+	@mkdir -p $(BUILD_DIR)/whisperkey-$(VERSION)/extension
 	@mkdir -p $(DIST_DIR)
-	@cd $(PYTHON_APP_DIR) && uv build
-	@echo "Python wheel created in $(PYTHON_APP_DIR)/dist/"
-
-# Create a complete release package
-package: dist
-	@echo "--> Creating release package..."
-	@mkdir -p $(BUILD_DIR)/voxvibe-$(VERSION)
-	@mkdir -p $(BUILD_DIR)/voxvibe-$(VERSION)/app
-	@mkdir -p $(BUILD_DIR)/voxvibe-$(VERSION)/extension
 	
-	# Copy Python application wheel
-	@cp $(PYTHON_APP_DIR)/dist/*.whl $(BUILD_DIR)/voxvibe-$(VERSION)/app/
+	# Copy Python wheel
+	@cp $(PYTHON_APP_DIR)/dist/*.whl $(BUILD_DIR)/whisperkey-$(VERSION)/app/
 	
-	# Copy extension files
-	@cp -r extension/* $(BUILD_DIR)/voxvibe-$(VERSION)/extension/
+	# Copy extension files  
+	@cp -r extension/* $(BUILD_DIR)/whisperkey-$(VERSION)/extension/
 	
-	# Copy documentation and metadata
-	@cp README.md LICENSE Makefile $(BUILD_DIR)/voxvibe-$(VERSION)/
-	@cp $(PYTHON_APP_DIR)/README.md $(BUILD_DIR)/voxvibe-$(VERSION)/app/
+	# Copy root files
+	@cp README.md LICENSE Makefile $(BUILD_DIR)/whisperkey-$(VERSION)/
+	@cp $(PYTHON_APP_DIR)/README.md $(BUILD_DIR)/whisperkey-$(VERSION)/app/
 	
-	# Create version info file
-	@echo "VoxVibe $(VERSION)" > $(BUILD_DIR)/voxvibe-$(VERSION)/VERSION
-	@echo "Git Commit: $(GIT_COMMIT)" >> $(BUILD_DIR)/voxvibe-$(VERSION)/VERSION
-	@echo "Build Date: $(shell date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $(BUILD_DIR)/voxvibe-$(VERSION)/VERSION
+	# Create version file
+	@echo "Whisper Key $(VERSION)" > $(BUILD_DIR)/whisperkey-$(VERSION)/VERSION
+	@echo "Git Commit: $(GIT_COMMIT)" >> $(BUILD_DIR)/whisperkey-$(VERSION)/VERSION
+	@echo "Build Date: $(shell date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $(BUILD_DIR)/whisperkey-$(VERSION)/VERSION
 	
-	# Create installation script
-	@sed -e 's/{{VERSION}}/$(VERSION)/g' -e 's/{{EXTENSION_UUID}}/$(EXTENSION_UUID)/g' install.sh.template > $(BUILD_DIR)/voxvibe-$(VERSION)/install.sh
-	@chmod +x $(BUILD_DIR)/voxvibe-$(VERSION)/install.sh
+	# Create install script from template
+	@sed -e 's/{{VERSION}}/$(VERSION)/g' -e 's/{{EXTENSION_UUID}}/$(EXTENSION_UUID)/g' install.sh.template > $(BUILD_DIR)/whisperkey-$(VERSION)/install.sh
+	@chmod +x $(BUILD_DIR)/whisperkey-$(VERSION)/install.sh
 	
 	# Create tarball
-	@cd $(BUILD_DIR) && tar -czf voxvibe-$(VERSION).tar.gz voxvibe-$(VERSION)/
-	@mv $(BUILD_DIR)/voxvibe-$(VERSION).tar.gz $(DIST_DIR)/
-	@echo "Release package created: $(DIST_DIR)/voxvibe-$(VERSION).tar.gz"
-
-# Prepare release (requires clean working tree)
-release: check-tools
-	@echo "--> Preparing release..."
-	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "ERROR: Working tree is not clean. Please commit or stash changes."; \
-		exit 1; \
-	fi
-	@if [ -z "$(GIT_TAG)" ]; then \
-		echo "Creating tag v$(VERSION)..."; \
-		git tag -a "v$(VERSION)" -m "Release version $(VERSION)"; \
-	else \
-		echo "Tag $(GIT_TAG) already exists."; \
-	fi
-	@$(MAKE) package
-	@echo "Release v$(VERSION) prepared successfully."
-	@echo "To push the release: git push origin v$(VERSION)"
-
-# Enhanced clean target
-clean:
-	@echo "--> Cleaning up..."
-	@rm -rf $(PYTHON_APP_DIR)/dist
-	@rm -rf $(PYTHON_APP_DIR)/.venv
-	@rm -rf $(EXTENSION_INSTALL_PATH)
-	@rm -rf $(DIST_DIR)
-	@rm -rf $(BUILD_DIR)
-	@echo "Cleanup complete."
+	@cd $(BUILD_DIR) && tar -czf whisperkey-$(VERSION).tar.gz whisperkey-$(VERSION)/
+	@mv $(BUILD_DIR)/whisperkey-$(VERSION).tar.gz $(DIST_DIR)/
+	@echo "Release package created: $(DIST_DIR)/whisperkey-$(VERSION).tar.gz"

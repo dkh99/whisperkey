@@ -3,8 +3,8 @@ import time
 from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage
 
 BUS_NAME = "org.gnome.Shell"
-OBJECT_PATH = "/org/gnome/Shell/Extensions/VoxVibe"
-INTERFACE = "org.gnome.Shell.Extensions.VoxVibe"
+OBJECT_PATH = "/org/gnome/Shell/Extensions/WhisperKey"
+INTERFACE = "org.gnome.Shell.Extensions.WhisperKey"
 
 def main():
     bus = QDBusConnection.sessionBus()
