@@ -17,6 +17,11 @@ class AudioRecorder:
         self.recording_thread = None
         self.stream = None  # Keep reference to current stream
         
+        # Bluetooth/PulseAudio recording support
+        self.use_pulseaudio = False
+        self.pulseaudio_source = None
+        self.pulseaudio_process = None
+        
         # Set default device to None to use system default
         sd.default.samplerate = sample_rate
         sd.default.channels = channels
@@ -49,47 +54,15 @@ class AudioRecorder:
         print("🎤 AudioRecorder: _record_with_timeout thread started")
         
         try:
-            # Set a timeout for the entire recording setup
-            setup_timeout = 2.0  # 2 seconds max for setup
-            start_time = time.time()
+            # Check if we need to use PulseAudio directly for Bluetooth microphones
+            self._wait_for_bluetooth_microphone_if_needed()
             
-            def audio_callback(indata, frames, time, status):
-                if status:
-                    print(f"Audio callback status: {status}")
-                if self.is_recording:
-                    self.audio_queue.put(indata.copy())
-            
-            print("🎤 AudioRecorder: Creating audio stream with timeout protection...")
-            
-            # Create stream with minimal settings
-            try:
-                self.stream = sd.InputStream(
-                    callback=audio_callback,
-                    samplerate=self.sample_rate,
-                    channels=self.channels,
-                    dtype=np.float32,
-                    blocksize=512,  # Smaller blocksize for responsiveness
-                    latency='low'   # Request low latency
-                )
-                
-                if time.time() - start_time > setup_timeout:
-                    raise Exception("Stream creation timed out")
-                
-                print("🎤 AudioRecorder: Stream created, starting...")
-                self.stream.start()
-                print("🎤 AudioRecorder: Stream started successfully!")
-                
-                # Recording loop with quick exit
-                print("🎤 AudioRecorder: Entering recording loop...")
-                while self.is_recording:
-                    time.sleep(0.01)  # Very responsive
-                    
-                print("🎤 AudioRecorder: Exited recording loop")
-                
-            except Exception as stream_error:
-                print(f"❌ AudioRecorder: Stream error: {stream_error}")
-                self.is_recording = False
-                return
+            if self.use_pulseaudio:
+                # Use PulseAudio directly for Bluetooth microphones
+                self._record_with_pulseaudio()
+            else:
+                # Use sounddevice for regular microphones
+                self._record_with_sounddevice()
                 
         except Exception as e:
             print(f"❌ AudioRecorder: Recording setup error: {e}")
@@ -99,8 +72,200 @@ class AudioRecorder:
             self._cleanup_stream()
             print("🎤 AudioRecorder: _record_with_timeout thread finished")
     
+    def _record_with_sounddevice(self):
+        """Record using sounddevice (for regular microphones)"""
+        # Set a timeout for the entire recording setup
+        setup_timeout = 2.0  # 2 seconds max for setup
+        start_time = time.time()
+        
+        def audio_callback(indata, frames, time, status):
+            if status:
+                print(f"Audio callback status: {status}")
+            if self.is_recording:
+                self.audio_queue.put(indata.copy())
+        
+        print("🎤 AudioRecorder: Creating audio stream with timeout protection...")
+        
+        # Create stream with minimal settings
+        try:
+            self.stream = sd.InputStream(
+                callback=audio_callback,
+                samplerate=self.sample_rate,
+                channels=self.channels,
+                dtype=np.float32,
+                blocksize=512,  # Smaller blocksize for responsiveness
+                latency='low'   # Request low latency
+            )
+            
+            if time.time() - start_time > setup_timeout:
+                raise Exception("Stream creation timed out")
+            
+            print("🎤 AudioRecorder: Stream created, starting...")
+            self.stream.start()
+            print("🎤 AudioRecorder: Stream started successfully!")
+            
+            # Recording loop with quick exit
+            print("🎤 AudioRecorder: Entering recording loop...")
+            while self.is_recording:
+                time.sleep(0.01)  # Very responsive
+                
+            print("🎤 AudioRecorder: Exited recording loop")
+            
+        except Exception as stream_error:
+            print(f"❌ AudioRecorder: Stream error: {stream_error}")
+            self.is_recording = False
+            return
+    
+    def _record_with_pulseaudio(self):
+        """Record using PulseAudio directly (for Bluetooth microphones)"""
+        import subprocess
+        
+        print(f"🔵 AudioRecorder: Using PulseAudio to record from {self.pulseaudio_source}")
+        
+        try:
+            # First, properly activate the Bluetooth source
+            print(f"🔵 AudioRecorder: Activating Bluetooth source...")
+            
+            # Step 1: Set as default source
+            try:
+                result = subprocess.run(['pactl', 'set-default-source', self.pulseaudio_source], 
+                                     capture_output=True, text=True, timeout=3)
+                if result.returncode != 0:
+                    print(f"⚠️ Failed to set default source: {result.stderr}")
+                else:
+                    print(f"✅ Set {self.pulseaudio_source} as default source")
+            except Exception as e:
+                print(f"⚠️ Error setting default source: {e}")
+            
+            # Step 2: Unsuspend the source
+            try:
+                result = subprocess.run(['pactl', 'suspend-source', self.pulseaudio_source, 'false'], 
+                                     capture_output=True, text=True, timeout=3)
+                if result.returncode != 0:
+                    print(f"⚠️ Failed to unsuspend source: {result.stderr}")
+                else:
+                    print(f"✅ Unsuspended source {self.pulseaudio_source}")
+            except Exception as e:
+                print(f"⚠️ Error unsuspending source: {e}")
+            
+            # Step 3: Wait for source to become ready
+            time.sleep(0.5)  # Give more time for Bluetooth source to activate
+            
+            # Step 4: Verify source is available and not suspended
+            try:
+                result = subprocess.run(['pactl', 'list', 'sources', 'short'], 
+                                     capture_output=True, text=True, timeout=3)
+                if result.returncode == 0:
+                    sources = result.stdout
+                    if self.pulseaudio_source in sources:
+                        if 'SUSPENDED' in sources:
+                            print(f"⚠️ Source {self.pulseaudio_source} is still suspended")
+                        else:
+                            print(f"✅ Source {self.pulseaudio_source} is active and ready")
+                    else:
+                        print(f"⚠️ Source {self.pulseaudio_source} not found in source list")
+            except Exception as e:
+                print(f"⚠️ Error checking source status: {e}")
+            
+            # Use parec to record from PulseAudio source - try s16le format first
+            cmd = [
+                'parec',
+                '--device', self.pulseaudio_source,
+                '--rate', str(self.sample_rate),
+                '--channels', str(self.channels),
+                '--format', 's16le',  # Use 16-bit signed little endian
+                '--raw',
+                '--latency-msec', '50'  # Low latency
+            ]
+            
+            print(f"🔵 AudioRecorder: Starting parec command: {' '.join(cmd)}")
+            self.pulseaudio_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0  # Unbuffered
+            )
+            
+            # Give process a moment to start and check for errors
+            time.sleep(0.2)  # Increased wait time
+            if self.pulseaudio_process.poll() is not None:
+                stderr_output = self.pulseaudio_process.stderr.read().decode('utf-8', errors='ignore')
+                print(f"❌ PulseAudio process failed immediately: {stderr_output}")
+                return
+            
+            print("🔵 AudioRecorder: PulseAudio recording started successfully!")
+            
+            # Read audio data in chunks
+            chunk_size = 512 * self.channels * 2  # 512 samples * channels * 2 bytes per int16
+            chunks_received = 0
+            no_data_count = 0
+            max_no_data = 50  # Allow 50 empty reads before giving up
+            
+            print("🔵 AudioRecorder: Entering PulseAudio recording loop...")
+            while self.is_recording and self.pulseaudio_process and self.pulseaudio_process.poll() is None:
+                try:
+                    # Read chunk from parec with timeout
+                    import select
+                    
+                    # Check if data is available to read (non-blocking)
+                    ready, _, _ = select.select([self.pulseaudio_process.stdout], [], [], 0.1)
+                    
+                    if ready:
+                        data = self.pulseaudio_process.stdout.read(chunk_size)
+                        if data:
+                            chunks_received += 1
+                            no_data_count = 0  # Reset counter
+                            
+                            if chunks_received <= 5:  # Log first few chunks
+                                print(f"🔵 Received audio chunk {chunks_received}: {len(data)} bytes")
+                            
+                            # Convert s16le bytes to numpy array
+                            audio_chunk = np.frombuffer(data, dtype=np.int16)
+                            
+                            # Convert to float32 and normalize
+                            audio_chunk = audio_chunk.astype(np.float32) / 32768.0
+                            
+                            # Reshape if stereo
+                            if self.channels > 1:
+                                audio_chunk = audio_chunk.reshape(-1, self.channels)
+                            else:
+                                audio_chunk = audio_chunk.reshape(-1, 1)
+                            
+                            # Add to queue
+                            self.audio_queue.put(audio_chunk)
+                        else:
+                            no_data_count += 1
+                            if no_data_count > max_no_data:
+                                print(f"🔵 No data received after {max_no_data} attempts, stopping")
+                                break
+                    else:
+                        # No data ready to read
+                        no_data_count += 1
+                        if no_data_count > max_no_data:
+                            print(f"🔵 No data available after {max_no_data} attempts, stopping")
+                            break
+                        time.sleep(0.01)
+                    
+                except Exception as read_error:
+                    print(f"⚠️ PulseAudio read error: {read_error}")
+                    time.sleep(0.01)
+                    continue
+            
+            print(f"🔵 AudioRecorder: Exited PulseAudio recording loop (chunks received: {chunks_received})")
+            
+            # Check if process exited with error
+            if self.pulseaudio_process and self.pulseaudio_process.poll() is not None:
+                stderr_output = self.pulseaudio_process.stderr.read().decode('utf-8', errors='ignore')
+                if stderr_output:
+                    print(f"⚠️ PulseAudio stderr: {stderr_output}")
+            
+        except Exception as pa_error:
+            print(f"❌ AudioRecorder: PulseAudio error: {pa_error}")
+            self.is_recording = False
+    
     def _cleanup_stream(self):
-        """Clean up the audio stream"""
+        """Clean up the audio stream or PulseAudio process"""
+        # Clean up sounddevice stream
         if self.stream:
             try:
                 print("🎤 AudioRecorder: Stopping stream...")
@@ -112,6 +277,23 @@ class AudioRecorder:
                 print(f"⚠️ AudioRecorder: Stream cleanup error: {e}")
             finally:
                 self.stream = None
+        
+        # Clean up PulseAudio process
+        if self.pulseaudio_process:
+            try:
+                print("🔵 AudioRecorder: Terminating PulseAudio process...")
+                self.pulseaudio_process.terminate()
+                self.pulseaudio_process.wait(timeout=2.0)
+                print("✅ AudioRecorder: PulseAudio process terminated")
+            except Exception as e:
+                print(f"⚠️ AudioRecorder: PulseAudio cleanup error: {e}")
+                try:
+                    self.pulseaudio_process.kill()
+                    print("🔵 AudioRecorder: PulseAudio process killed")
+                except:
+                    pass
+            finally:
+                self.pulseaudio_process = None
     
     def stop_recording(self) -> Optional[np.ndarray]:
         """Stop recording and return the recorded audio data"""
@@ -213,3 +395,36 @@ class AudioRecorder:
         time.sleep(0.1)
         
         print("🧹 AudioRecorder: All cleanup operations completed")
+    
+    def _wait_for_bluetooth_microphone_if_needed(self):
+        """Check if we need to use PulseAudio directly for Bluetooth microphones"""
+        try:
+            import subprocess
+            
+            # Get current default source
+            result = subprocess.run(['pactl', 'get-default-source'], 
+                                  capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                current_source = result.stdout.strip()
+                
+                # Check if it's a Bluetooth input device
+                if 'bluez_input' in current_source:
+                    print(f"🔵 Bluetooth microphone detected: {current_source}")
+                    print(f"🔵 Will use PulseAudio directly for Bluetooth recording")
+                    
+                    # Set flag to use PulseAudio instead of sounddevice
+                    self.use_pulseaudio = True
+                    self.pulseaudio_source = current_source
+                    
+                    print(f"🔵 Bluetooth microphone setup complete - using PulseAudio")
+                    return
+                    
+            # Not a Bluetooth microphone, use sounddevice normally
+            self.use_pulseaudio = False
+            self.pulseaudio_source = None
+                    
+        except Exception as e:
+            # Don't fail if we can't detect - just continue with sounddevice
+            print(f"🔵 Could not detect microphone type: {e}")
+            self.use_pulseaudio = False
+            self.pulseaudio_source = None

@@ -26,6 +26,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from .audio_device_manager import AudioDeviceManager
+
 
 class WhisperKeySettings:
     """Configuration manager for Whisper Key settings."""
@@ -475,6 +477,7 @@ class SettingsDialog(QDialog):
         widget = QWidget()
         layout = QVBoxLayout()
         
+        # Speech Recognition Group
         audio_group = QGroupBox("Speech Recognition")
         audio_layout = QFormLayout()
         
@@ -497,6 +500,57 @@ class SettingsDialog(QDialog):
         audio_group.setLayout(audio_layout)
         layout.addWidget(audio_group)
         
+        # Audio Device Switching Group
+        device_group = QGroupBox("Automatic Device Switching")
+        device_layout = QFormLayout()
+        
+        # Enable device switching
+        self.device_switching_cb = QCheckBox("Enable automatic device switching")
+        self.device_switching_cb.setToolTip("Automatically switch between different device sets for dictating vs normal use")
+        self.device_switching_cb.stateChanged.connect(self.on_device_switching_changed)
+        device_layout.addRow(self.device_switching_cb)
+        
+        # DICTATING STATE DEVICES
+        dictating_label = QLabel("📱 While Dictating:")
+        dictating_label.setStyleSheet("font-weight: bold; color: #2196F3; margin-top: 10px;")
+        device_layout.addRow(dictating_label)
+        
+        # Microphone for dictating
+        self.dictating_mic_combo = QComboBox()
+        self.dictating_mic_combo.setToolTip("Microphone to use during dictation")
+        device_layout.addRow("Microphone:", self.dictating_mic_combo)
+        
+        # Speakers for dictating
+        self.dictating_output_combo = QComboBox()
+        self.dictating_output_combo.setToolTip("Audio output while dictating (often muted or low volume)")
+        device_layout.addRow("Speakers:", self.dictating_output_combo)
+        
+        # NON-DICTATING STATE DEVICES  
+        normal_label = QLabel("🎵 When Not Dictating:")
+        normal_label.setStyleSheet("font-weight: bold; color: #4CAF50; margin-top: 15px;")
+        device_layout.addRow(normal_label)
+        
+        # Microphone for normal use
+        self.normal_mic_combo = QComboBox()
+        self.normal_mic_combo.setToolTip("Default microphone for normal use")
+        device_layout.addRow("Microphone:", self.normal_mic_combo)
+        
+        # Speakers for normal use
+        self.normal_output_combo = QComboBox()
+        self.normal_output_combo.setToolTip("Audio output for music, videos, etc. when not dictating")
+        device_layout.addRow("Speakers:", self.normal_output_combo)
+        
+        # Refresh devices button
+        refresh_btn = QPushButton("🔄 Refresh Device List")
+        refresh_btn.clicked.connect(self.refresh_audio_devices)
+        device_layout.addRow(refresh_btn)
+        
+        device_group.setLayout(device_layout)
+        layout.addWidget(device_group)
+        
+        # Load available devices
+        self.refresh_audio_devices()
+        
         layout.addStretch()
         widget.setLayout(layout)
         return widget
@@ -508,6 +562,53 @@ class SettingsDialog(QDialog):
         self.model_combo.setEnabled(enabled)
         self.test_button.setEnabled(enabled)
     
+    def on_device_switching_changed(self, state):
+        """Handle device switching enabled state change."""
+        enabled = state == Qt.CheckState.Checked.value
+        self.dictating_mic_combo.setEnabled(enabled)
+        self.dictating_output_combo.setEnabled(enabled)
+        self.normal_mic_combo.setEnabled(enabled)
+        self.normal_output_combo.setEnabled(enabled)
+    
+    def refresh_audio_devices(self):
+        """Refresh the list of available audio devices."""
+        try:
+            # Create temporary audio device manager to get device lists
+            audio_manager = AudioDeviceManager()
+            devices = audio_manager.list_devices()
+            
+            # Clear existing items
+            self.dictating_mic_combo.clear()
+            self.dictating_output_combo.clear()
+            self.normal_mic_combo.clear()
+            self.normal_output_combo.clear()
+            
+            # Add "System Default" option to all combos
+            for combo in [self.dictating_mic_combo, self.normal_mic_combo]:
+                combo.addItem("System Default", "")
+            for combo in [self.dictating_output_combo, self.normal_output_combo]:
+                combo.addItem("System Default", "")
+            
+            # Add microphones (sources) to both mic combos
+            for device in devices['sources']:
+                self.dictating_mic_combo.addItem(device.description, device.name)
+                self.normal_mic_combo.addItem(device.description, device.name)
+            
+            # Add output devices (sinks) to both output combos
+            for device in devices['sinks']:
+                self.dictating_output_combo.addItem(device.description, device.name)
+                self.normal_output_combo.addItem(device.description, device.name)
+                
+            print(f"🔊 Loaded {len(devices['sources'])} microphones and {len(devices['sinks'])} output devices")
+            
+        except Exception as e:
+            print(f"⚠️ Error refreshing audio devices: {e}")
+            # Add fallback options
+            for combo in [self.dictating_mic_combo, self.normal_mic_combo, 
+                         self.dictating_output_combo, self.normal_output_combo]:
+                combo.clear()
+                combo.addItem("System Default", "")
+    
     def load_current_settings(self):
         """Load current settings into the dialog."""
         # LLM settings
@@ -518,6 +619,38 @@ class SettingsDialog(QDialog):
         # Audio settings
         self.whisper_model_combo.setCurrentText(self.settings.get("audio.model", "base"))
         self.language_combo.setCurrentText(self.settings.get("audio.language", "auto"))
+        
+        # Audio device settings
+        if hasattr(self, 'device_switching_cb'):
+            self.device_switching_cb.setChecked(self.settings.get("audio.device_switching_enabled", False))
+            
+            # Set dictating devices
+            dictating_mic = self.settings.get("audio.dictating_mic", "")
+            dictating_output = self.settings.get("audio.dictating_output", "")
+            
+            # Set normal devices  
+            normal_mic = self.settings.get("audio.normal_mic", "")
+            normal_output = self.settings.get("audio.normal_output", "")
+            
+            # Find and select the devices in combo boxes
+            dictating_mic_index = self.dictating_mic_combo.findData(dictating_mic)
+            if dictating_mic_index >= 0:
+                self.dictating_mic_combo.setCurrentIndex(dictating_mic_index)
+            
+            dictating_output_index = self.dictating_output_combo.findData(dictating_output)
+            if dictating_output_index >= 0:
+                self.dictating_output_combo.setCurrentIndex(dictating_output_index)
+                
+            normal_mic_index = self.normal_mic_combo.findData(normal_mic)
+            if normal_mic_index >= 0:
+                self.normal_mic_combo.setCurrentIndex(normal_mic_index)
+            
+            normal_output_index = self.normal_output_combo.findData(normal_output)
+            if normal_output_index >= 0:
+                self.normal_output_combo.setCurrentIndex(normal_output_index)
+                
+            # Update UI state
+            self.on_device_switching_changed(self.device_switching_cb.checkState())
         
         # Load base prompts
         if hasattr(self, 'base_prompt_edit'):
@@ -591,6 +724,14 @@ class SettingsDialog(QDialog):
             # Save audio settings
             self.settings.set("audio.model", self.whisper_model_combo.currentText())
             self.settings.set("audio.language", self.language_combo.currentText())
+            
+            # Save audio device settings
+            if hasattr(self, 'device_switching_cb'):
+                self.settings.set("audio.device_switching_enabled", self.device_switching_cb.isChecked())
+                self.settings.set("audio.dictating_mic", self.dictating_mic_combo.currentData() or "")
+                self.settings.set("audio.dictating_output", self.dictating_output_combo.currentData() or "")
+                self.settings.set("audio.normal_mic", self.normal_mic_combo.currentData() or "")
+                self.settings.set("audio.normal_output", self.normal_output_combo.currentData() or "")
             
             # Save base prompts
             if hasattr(self, 'base_prompt_edit'):

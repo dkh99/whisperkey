@@ -17,6 +17,7 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
     # Signals
     paste_requested = pyqtSignal(str)  # text to paste
     quit_requested = pyqtSignal()
+    settings_changed = pyqtSignal()  # emitted when settings are changed
     
     def __init__(self, history: TranscriptionHistory, window_manager: Optional[WindowManager] = None):
         super().__init__()
@@ -485,6 +486,8 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         self.show_message("Settings Saved", 
                          "Settings have been saved!\nSome changes may require a restart to take effect.", 
                          timeout=3000)
+        # Emit signal to notify main app
+        self.settings_changed.emit()
     
     def show_message(self, title: str, message: str, icon=QMessageBox.Icon.Information, timeout: int = 5000):
         """Show a system tray message"""

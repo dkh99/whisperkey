@@ -11,6 +11,7 @@ from PyQt6.QtCore import QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
+from .audio_device_manager import AudioDeviceManager
 from .audio_recorder import AudioRecorder
 from .history import TranscriptionHistory
 from .hotkey_service import HotkeyService, RecordingMode
@@ -137,6 +138,7 @@ class WhisperKeyApp:
         # Services
         self.hotkey_service: HotkeyService = None
         self.window_manager: WindowManager = None
+        self.audio_device_manager: AudioDeviceManager = None
         
         # State
         self.current_mode = RecordingMode.IDLE
@@ -179,10 +181,16 @@ class WhisperKeyApp:
         # Initialize sound effects
         self.sound_fx = SoundFX()
         
+        # Initialize audio device manager
+        self.audio_device_manager = AudioDeviceManager()
+        self._configure_audio_device_manager()
+        
         # Initialize system tray
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.tray_icon = WhisperKeyTrayIcon(self.history, self.window_manager)
             self.setup_tray_connections()
+            # Pass settings to tray icon so it can create the settings dialog
+            self.tray_icon.settings = self.transcriber.settings
         else:
             print("⚠️ System tray not available")
         
@@ -216,6 +224,46 @@ class WhisperKeyApp:
         """Setup tray icon signal connections"""
         if self.tray_icon:
             self.tray_icon.quit_requested.connect(self.quit_application)
+            self.tray_icon.settings_changed.connect(self._configure_audio_device_manager)
+    
+    def _configure_audio_device_manager(self):
+        """Configure audio device manager with user preferences"""
+        if not self.audio_device_manager:
+            return
+            
+        # Get settings from the transcriber's settings object
+        settings = self.transcriber.settings
+        if not settings:
+            return
+        
+        # Check if device switching is enabled
+        device_switching_enabled = settings.get("audio.device_switching_enabled", False)
+        dictating_mic = settings.get("audio.dictating_mic", "")
+        dictating_output = settings.get("audio.dictating_output", "")
+        normal_mic = settings.get("audio.normal_mic", "")
+        normal_output = settings.get("audio.normal_output", "")
+        
+        print(f"🔧 Configuring audio device manager:")
+        print(f"  Device switching enabled: {device_switching_enabled}")
+        print(f"  Dictating mic: {dictating_mic}")
+        print(f"  Dictating output: {dictating_output}")
+        print(f"  Normal mic: {normal_mic}")
+        print(f"  Normal output: {normal_output}")
+        
+        if device_switching_enabled:
+            self.audio_device_manager.configure_four_device_switching(
+                dictating_mic=dictating_mic,
+                dictating_output=dictating_output,
+                normal_mic=normal_mic,
+                normal_output=normal_output
+            )
+            # Enable Bluetooth profile switching for seamless microphone/speaker switching
+            self.audio_device_manager.enable_bluetooth_switching()
+            print(f"🔊 Four-device audio switching configured with Bluetooth profile switching")
+        else:
+            self.audio_device_manager.disable_switching()
+            self.audio_device_manager.disable_bluetooth_switching()
+            print(f"🔊 Audio device switching disabled")
     
     def start_recording(self):
         """Start audio recording"""
@@ -223,6 +271,10 @@ class WhisperKeyApp:
             return
         
         print("🎤 Starting recording...")
+        
+        # Switch to dictating audio devices
+        if self.audio_device_manager:
+            self.audio_device_manager.start_recording_audio_switch()
         
         # Store current window for pasting later
         if self.window_manager:
@@ -271,6 +323,10 @@ class WhisperKeyApp:
         # Play stop sound
         if self.sound_fx:
             self.sound_fx.play_stop()
+        
+        # Switch back to normal audio devices after recording
+        if self.audio_device_manager:
+            self.audio_device_manager.stop_recording_audio_switch()
         
         # Update UI state
         self.current_mode = RecordingMode.IDLE
