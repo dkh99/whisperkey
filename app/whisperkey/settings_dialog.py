@@ -58,7 +58,12 @@ class WhisperKeySettings:
             },
             "audio": {
                 "model": "base",
-                "language": "auto"
+                "language": "auto",
+                "device_switching_enabled": False,
+                "dictating_mic": "",
+                "dictating_output": "",
+                "normal_mic": "",
+                "normal_output": ""
             },
             "ui": {
                 "show_notifications": True,

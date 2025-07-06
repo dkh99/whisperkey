@@ -779,35 +779,51 @@ class AudioDeviceManager:
                 self._switch_bluetooth_card_to_headset(card_name)
     
     def _switch_bluetooth_card_to_headset(self, card_name: str):
-        """Switch a specific Bluetooth card to headset mode with DOUBLE SWITCH"""
-        # BREAKTHROUGH: The Bluetooth microphone only activates with a DOUBLE switch!
-        # We need to switch to headset profile TWICE to activate the microphone source.
+        """Switch a specific Bluetooth card to headset mode with EXACT WORKING SEQUENCE"""
+        # BREAKTHROUGH: Found the exact working sequence from manual testing!
+        # EXACT SEQUENCE: A2DP -> headset -> off -> headset (NO PORT SWITCHING!)
         try:
-            print(f"🔵 Switching {card_name} to headset mode (first switch)...")
-            result = subprocess.run(['pactl', 'set-card-profile', card_name, 'headset-head-unit-msbc'], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                print(f"✅ First switch successful: {card_name} to headset-head-unit-msbc")
-                
-                # CRITICAL: Wait briefly between switches
-                time.sleep(0.5)
-                
-                # DOUBLE SWITCH: Switch to the same profile again to activate microphone!
-                print(f"🔵 Switching {card_name} to headset mode (second switch - ACTIVATION)...")
-                result2 = subprocess.run(['pactl', 'set-card-profile', card_name, 'headset-head-unit-msbc'], 
-                                       capture_output=True, text=True, timeout=5)
-                if result2.returncode == 0:
-                    print(f"🎉 DOUBLE SWITCH SUCCESS: {card_name} microphone should now be active!")
-                    return True
-                else:
-                    print(f"⚠️ Second switch failed for {card_name}: {result2.stderr}")
-                    return False
-            else:
-                print(f"⚠️ First switch failed for {card_name}: {result.stderr}")
+            print(f"🔵 Using EXACT WORKING SEQUENCE: A2DP -> headset -> off -> headset")
+            
+            # Step 1: Switch to headset mode (first switch)
+            print(f"🔵 Step 1: Switching {card_name} to headset mode...")
+            result1 = subprocess.run(['pactl', 'set-card-profile', card_name, 'headset-head-unit-msbc'], 
+                                   capture_output=True, text=True, timeout=5)
+            if result1.returncode != 0:
+                print(f"⚠️ Step 1 failed for {card_name}: {result1.stderr}")
                 return False
+            
+            print(f"✅ Step 1 successful: {card_name} to headset-head-unit-msbc")
+            time.sleep(0.5)
+            
+            # Step 2: CRITICAL - Switch to OFF profile (reset connection)
+            print(f"🔵 Step 2: Resetting connection (OFF profile)...")
+            result2 = subprocess.run(['pactl', 'set-card-profile', card_name, 'off'], 
+                                   capture_output=True, text=True, timeout=5)
+            if result2.returncode != 0:
+                print(f"⚠️ Step 2 failed for {card_name}: {result2.stderr}")
+                return False
+            
+            print(f"✅ Step 2 successful: {card_name} disconnected")
+            time.sleep(0.5)
+            
+            # Step 3: Switch back to headset mode (ACTIVATION!)
+            print(f"🔵 Step 3: Switching back to headset mode (ACTIVATION)...")
+            result3 = subprocess.run(['pactl', 'set-card-profile', card_name, 'headset-head-unit-msbc'], 
+                                   capture_output=True, text=True, timeout=5)
+            if result3.returncode != 0:
+                print(f"⚠️ Step 3 failed for {card_name}: {result3.stderr}")
+                return False
+            
+            print(f"✅ Step 3 successful: {card_name} back to headset-head-unit-msbc")
+            time.sleep(1.0)  # Wait for profile to establish
+            
+            print(f"🎉 EXACT WORKING SEQUENCE SUCCESS: {card_name} microphone should now be active!")
+            print(f"✅ Completed: A2DP -> headset -> off -> headset (NO PORT SWITCHING)")
+            return True
                 
         except Exception as e:
-            print(f"⚠️ Error switching {card_name} to headset: {e}")
+            print(f"⚠️ Error executing exact working sequence for {card_name}: {e}")
             return False
     
     def _switch_bluetooth_sink_port_to_handsfree(self, sink_name: str) -> bool:

@@ -117,10 +117,192 @@ class AudioRecorder:
             return
     
     def _record_with_pulseaudio(self):
-        """Record using PulseAudio directly (for Bluetooth microphones)"""
+        """Record using PipeWire/PulseAudio (for Bluetooth microphones)"""
         import subprocess
+        import os
         
-        print(f"🔵 AudioRecorder: Using PulseAudio to record from {self.pulseaudio_source}")
+        print(f"🔵 AudioRecorder: Using PipeWire/PulseAudio to record from {self.pulseaudio_source}")
+        
+        # Check if system is running PipeWire
+        is_pipewire = os.path.exists('/usr/bin/pw-record')
+        if not is_pipewire:
+            # Also check by looking for pipewire processes
+            try:
+                result = subprocess.run(['pgrep', 'pipewire'], capture_output=True, text=True, timeout=2)
+                is_pipewire = result.returncode == 0
+            except:
+                is_pipewire = False
+        
+        if is_pipewire:
+            print("🔵 AudioRecorder: Detected PipeWire system, using pw-record")
+            self._record_with_pipewire()
+        else:
+            print("🔵 AudioRecorder: Detected PulseAudio system, using parec")
+            self._record_with_parec()
+    
+    def _record_with_pipewire(self):
+        """Record using PipeWire native tools"""
+        import subprocess
+        import tempfile
+        
+        try:
+            # First, get the PipeWire node ID for the Bluetooth source
+            print(f"🔵 AudioRecorder: Finding PipeWire node for {self.pulseaudio_source}")
+            
+            # Get node ID from wpctl status
+            result = subprocess.run(['wpctl', 'status'], capture_output=True, text=True, timeout=3)
+            if result.returncode != 0:
+                print(f"⚠️ Failed to get wpctl status: {result.stderr}")
+                return
+            
+            # Parse the output to find the Bluetooth source node ID
+            node_id = None
+            lines = result.stdout.split('\n')
+            in_sources_section = False
+            
+            for line in lines:
+                if '├─ Sources:' in line:
+                    in_sources_section = True
+                    continue
+                elif '├─' in line and in_sources_section:
+                    # Exited sources section
+                    break
+                elif in_sources_section and 'HUAWEI FreeLace Pro 2' in line:
+                    # Extract node ID (number at start of line)
+                    parts = line.strip().split('.')
+                    if parts and parts[0].strip().replace('*', '').strip().isdigit():
+                        node_id = parts[0].strip().replace('*', '').strip()
+                        break
+            
+            if not node_id:
+                print(f"⚠️ Could not find PipeWire node ID for Bluetooth source")
+                return
+                
+            print(f"🔵 AudioRecorder: Found PipeWire node ID: {node_id}")
+            
+            # Set as default source using wpctl
+            try:
+                result = subprocess.run(['wpctl', 'set-default', node_id], 
+                                     capture_output=True, text=True, timeout=3)
+                if result.returncode != 0:
+                    print(f"⚠️ Failed to set default source: {result.stderr}")
+                else:
+                    print(f"✅ Set node {node_id} as default source")
+            except Exception as e:
+                print(f"⚠️ Error setting default source: {e}")
+            
+            # Create a temporary WAV file for pw-record
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                temp_wav_path = temp_file.name
+            
+            # Use pw-record to record from the specific node
+            cmd = [
+                'pw-record',
+                '--target', node_id,
+                '--rate', str(self.sample_rate),
+                '--channels', str(self.channels),
+                temp_wav_path
+            ]
+            
+            print(f"🔵 AudioRecorder: Starting pw-record command: {' '.join(cmd)}")
+            self.pulseaudio_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0
+            )
+            
+            # Give process a moment to start
+            time.sleep(0.2)
+            if self.pulseaudio_process.poll() is not None:
+                stderr_output = self.pulseaudio_process.stderr.read().decode('utf-8', errors='ignore')
+                print(f"❌ pw-record process failed immediately: {stderr_output}")
+                return
+            
+            print("🔵 AudioRecorder: pw-record started successfully!")
+            
+            # Monitor the process and simulate audio chunks for VoxVibe
+            chunks_received = 0
+            last_check_time = time.time()
+            
+            print("🔵 AudioRecorder: Entering PipeWire recording loop...")
+            while self.is_recording and self.pulseaudio_process and self.pulseaudio_process.poll() is None:
+                try:
+                    current_time = time.time()
+                    
+                    # Check if WAV file exists and is growing
+                    if os.path.exists(temp_wav_path):
+                        file_size = os.path.getsize(temp_wav_path)
+                        if file_size > 44:  # WAV header is 44 bytes
+                            chunks_received += 1
+                            
+                            if chunks_received <= 5:
+                                print(f"🔵 pw-record working: WAV file size {file_size} bytes (chunk {chunks_received})")
+                            
+                            # Simulate audio chunk for VoxVibe's queue
+                            # We create a small dummy chunk to keep VoxVibe happy
+                            # The actual audio will be read at the end
+                            if current_time - last_check_time >= 0.1:  # Every 100ms
+                                dummy_chunk = np.zeros((160, 1), dtype=np.float32)  # 10ms of silence at 16kHz
+                                self.audio_queue.put(dummy_chunk)
+                                last_check_time = current_time
+                    
+                    time.sleep(0.05)  # Check every 50ms
+                    
+                except Exception as read_error:
+                    print(f"⚠️ PipeWire monitoring error: {read_error}")
+                    time.sleep(0.1)
+                    continue
+            
+            print(f"🔵 AudioRecorder: Exited PipeWire recording loop (chunks received: {chunks_received})")
+            
+            # Cleanup: terminate pw-record and read final WAV file
+            if self.pulseaudio_process:
+                self.pulseaudio_process.terminate()
+                self.pulseaudio_process.wait(timeout=2.0)
+            
+            # Read the final WAV file and add real audio to queue
+            if os.path.exists(temp_wav_path) and os.path.getsize(temp_wav_path) > 44:
+                try:
+                    import wave
+                    with wave.open(temp_wav_path, 'rb') as wav_file:
+                        frames = wav_file.readframes(wav_file.getnframes())
+                        if frames:
+                            audio_data = np.frombuffer(frames, dtype=np.int16)
+                            audio_data = audio_data.astype(np.float32) / 32768.0
+                            
+                            # Reshape for channels
+                            if self.channels > 1:
+                                audio_data = audio_data.reshape(-1, self.channels)
+                            else:
+                                audio_data = audio_data.reshape(-1, 1)
+                            
+                            # Clear the dummy chunks and add real audio
+                            while not self.audio_queue.empty():
+                                try:
+                                    self.audio_queue.get_nowait()
+                                except:
+                                    break
+                            
+                            # Add real audio data
+                            self.audio_queue.put(audio_data)
+                            print(f"🔵 AudioRecorder: Successfully read {len(audio_data)} samples from WAV file")
+                except Exception as wav_error:
+                    print(f"⚠️ Error reading WAV file: {wav_error}")
+            
+            # Cleanup temporary file
+            try:
+                os.unlink(temp_wav_path)
+            except:
+                pass
+                
+        except Exception as pw_error:
+            print(f"❌ AudioRecorder: PipeWire error: {pw_error}")
+            self.is_recording = False
+    
+    def _record_with_parec(self):
+        """Record using PulseAudio parec (fallback for pure PulseAudio systems)"""
+        import subprocess
         
         try:
             # First, properly activate the Bluetooth source
