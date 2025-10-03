@@ -66,8 +66,25 @@ echo "🔌 Installing GNOME extension (optional)..."
 mkdir -p ~/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}
 cp -r extension/* ~/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}/
 
+echo "Compiling extension schemas..."
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/{{EXTENSION_UUID}}/schemas || true
+
+echo "Resetting extension to clear any stale state..."
+gnome-extensions reset {{EXTENSION_UUID}} 2>/dev/null || true
+sleep 1
+
 echo "Enabling extension..."
 gnome-extensions enable {{EXTENSION_UUID}} || echo "Please enable Whisper Key extension manually"
+
+echo "Configuring default hotkeys (Alt+Space primary, Super+Alt+g fallback)..."
+echo "Note: Using lowercase 'g' - GNOME keybindings are case-sensitive!"
+gsettings reset org.gnome.shell.extensions.whisperkey toggle-recording 2>/dev/null || true
+gsettings set org.gnome.shell.extensions.whisperkey toggle-recording "['<Alt>space', '<Super><Alt>g']" || true
+
+echo "Reloading extension to register keybindings..."
+gnome-extensions disable {{EXTENSION_UUID}} 2>/dev/null || true
+sleep 1
+gnome-extensions enable {{EXTENSION_UUID}} 2>/dev/null || true
 
 echo ""
 echo "✅ Installation complete!"
@@ -75,6 +92,9 @@ echo ""
 echo "🚀 WhisperKey is now installed and ready to use."
 echo "   • The application will start automatically on login"
 echo "   • Look for the microphone icon in your system tray"
-echo "   • Use Win+Alt hotkey to start dictating"
+echo "   • Use Alt+Space (or Super+Alt+G) to toggle dictation"
 echo ""
 echo "Please log out and back in to activate the extension and autostart."
+echo "If the hotkey doesn't work immediately, run:"
+echo "  gsettings get org.gnome.shell.extensions.whisperkey toggle-recording"
+echo "and ensure it shows ['<Alt>space', '<Super><Alt>G']"

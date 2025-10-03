@@ -11,16 +11,16 @@ DIST_DIR := dist
 IS_IN_APP := $(if $(wildcard pyproject.toml),1,0)
 
 # Main targets
-.PHONY: all help clean check-tools python extension package dist lint check-version
+.PHONY: all help clean check-tools python extension configure-hotkey package dist lint check-version
 
-all: check-tools python
+all: check-tools python extension configure-hotkey
 	@echo ""
 	@echo "✅ Installation complete!"
 	@echo ""
 	@echo "🚀 Whisper Key is now installed and ready to use."
 	@echo "   • The application will start automatically on login"
 	@echo "   • Look for the microphone icon in your system tray"
-	@echo "   • Use Win+Alt hotkey to start dictating"
+	@echo "   • Use Alt+Space to toggle dictation"
 	@echo ""
 	@echo "\nSetup complete. Whisper Key standalone application is ready."
 	@echo "The application will auto-start on next login."
@@ -32,7 +32,8 @@ help:
 	@echo "Main Commands:"
 	@echo "  all          - Setup standalone Whisper Key application (recommended)"
 	@echo "  python       - Install Python app only"
-	@echo "  extension    - Install GNOME extension only (optional)"
+	@echo "  extension    - Install GNOME extension only"
+	@echo "  configure-hotkey - Compile schemas and set Alt+Space hotkey"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  package      - Create release package"
 	@echo "  dist         - Create distribution build with linting"
@@ -80,8 +81,28 @@ extension:
 	@echo "🔌 Installing GNOME extension..."
 	@mkdir -p ~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)
 	@cp -r extension/* ~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)/
-	@echo "Extension installed. Please log out and back in, then enable the extension."
+	@echo "Compiling extension schemas..."
+	@glib-compile-schemas ~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)/schemas || true
+	@echo "Resetting extension to clear stale state..."
+	@gnome-extensions reset $(EXTENSION_UUID) 2>/dev/null || true
+	@sleep 1
+	@echo "Enabling extension..."
 	@gnome-extensions enable $(EXTENSION_UUID) || echo "Could not enable extension automatically. Please enable 'Whisper Key' in the GNOME Extensions app."
+	@echo "Extension installed. Please log out and back in to activate."
+
+configure-hotkey:
+	@echo "🛠 Configuring Whisper Key hotkeys..."
+	@echo "Compiling schemas..."
+	@glib-compile-schemas ~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)/schemas || true
+	@echo "Resetting gsettings to pick up schema defaults..."
+	@gsettings reset org.gnome.shell.extensions.whisperkey toggle-recording 2>/dev/null || true
+	@echo "Setting hotkeys (lowercase 'g' is important for GNOME)..."
+	@gsettings set org.gnome.shell.extensions.whisperkey toggle-recording "['<Alt>space', '<Super><Alt>g']" || true
+	@echo "Reloading extension to register keybindings..."
+	@gnome-extensions disable $(EXTENSION_UUID) 2>/dev/null || true
+	@sleep 1
+	@gnome-extensions enable $(EXTENSION_UUID) 2>/dev/null || true
+	@echo "✅ Hotkeys configured: Alt+Space (primary), Super+Alt+g (fallback)"
 
 # Clean build artifacts
 clean:
@@ -103,6 +124,8 @@ package: clean python
 	
 	# Copy extension files  
 	@cp -r extension/* $(BUILD_DIR)/whisperkey-$(VERSION)/extension/
+	@# Compile schemas inside packaged extension
+	@glib-compile-schemas $(BUILD_DIR)/whisperkey-$(VERSION)/extension/schemas || true
 	
 	# Copy root files
 	@cp README.md LICENSE Makefile $(BUILD_DIR)/whisperkey-$(VERSION)/

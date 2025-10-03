@@ -1,6 +1,4 @@
-That means we're coding.
-
-(This was dictated. If some words look odd, it might be because they sound like something else you know the sound of.)#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Test script to verify GNOME extension hotkey detection via DBus."""
 
 import sys
@@ -26,7 +24,7 @@ def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
     print("🚀 Starting DBus hotkey test...")
-    print("Press Super+Alt+G to test hotkey detection from GNOME extension")
+    print("Press Alt+Space or Super+Alt+G to test hotkey detection")
     print("Press Ctrl+C to quit\n")
     
     try:
@@ -47,8 +45,10 @@ def main():
         
     except Exception as e:
         print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())
