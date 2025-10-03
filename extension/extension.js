@@ -8,6 +8,11 @@ import St from 'gi://St';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+
+const HOTKEY_SCHEMA = 'org.gnome.shell.extensions.whisperkey';
+const HOTKEY_BINDING = 'toggle-recording';
 
 /**
  * @class DictationWindowExtension
@@ -15,13 +20,25 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
  * @property {Meta.Window|null} _lastFocusedWindow - The last focused GNOME window (Meta.Window or null)
  * @property {Gio.DBusExportedObject|null} _dbusImpl - The exported DBus object for this extension (Gio.DBusExportedObject or null)
  * @property {number|undefined} _focusSignal - Signal handler ID returned by global.display.connect (number or undefined)
+ * @property {Set} _pressedKeys - Set of currently pressed key codes
+ * @property {boolean} _isRecording - Whether recording is currently active
  */
 export default class DictationWindowExtension extends Extension {
     enable() {
         this._lastFocusedWindow = null;
         this._dbusImpl = null;
+        this._pressedKeys = new Set();
+        this._isRecording = false;
+        this._altDown = false;
+        this._spaceDown = false;
+        this._pendingStopId = 0;
+        this._stageFallbackEnabled = false;
+        this._lastToggleTs = 0;
+        this._keyPressSignal = null;
+        this._keyReleaseSignal = null;
         this._setupDBusService();
         this._connectSignals();
+        this._setupHotkeys();
 
         // Add panel indicator with microphone icon (native, no tooltip)
         this._trayButton = new PanelMenu.Button(0.0, 'Whisper Key Indicator', false);
@@ -45,6 +62,24 @@ export default class DictationWindowExtension extends Extension {
         if (this._focusSignal) {
             global.display.disconnect(this._focusSignal);
         }
+        this._removeHotkeys();
+        // Disconnect key event listeners if connected
+        try {
+            if (this._keyPressSignal) {
+                global.stage.disconnect(this._keyPressSignal);
+                this._keyPressSignal = null;
+            }
+            if (this._keyReleaseSignal) {
+                global.stage.disconnect(this._keyReleaseSignal);
+                this._keyReleaseSignal = null;
+            }
+            if (this._pendingStopId) {
+                try { GLib.Source.remove(this._pendingStopId); } catch (e) {}
+                this._pendingStopId = 0;
+            }
+        } catch (e) {
+            globalThis.log?.(`[Whisper Key] Error disconnecting key listeners: ${e}`);
+        }
         // Remove panel indicator
         if (this._trayButton) {
             this._trayButton.destroy();
@@ -67,6 +102,8 @@ export default class DictationWindowExtension extends Extension {
                 <signal name="WindowFocused">
                     <arg type="s" name="windowId"/>
                 </signal>
+                <signal name="ToggleRecording">
+                </signal>
             </interface>
         </node>`;
 
@@ -85,6 +122,65 @@ export default class DictationWindowExtension extends Extension {
                     GLib.Variant.new('(s)', [this._getWindowId(focusedWindow)]));
             }
         });
+    }
+
+    _setupHotkeys() {
+        try {
+            Main.wm.addKeybinding(
+                HOTKEY_BINDING,
+                this.getSettings(HOTKEY_SCHEMA),
+                Meta.KeyBindingFlags.NONE,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+                () => {
+                    // Toggle recording on each keybinding activation
+                    globalThis.log?.('[Whisper Key] Hotkey activated (Alt+Space), toggling');
+                    this._dbusImpl.emit_signal('ToggleRecording', GLib.Variant.new('()', []));
+                }
+            );
+            globalThis.log?.('[Whisper Key] Hotkey registered.');
+            this._stageFallbackEnabled = false;
+        } catch (e) {
+            globalThis.log?.(`[Whisper Key] addKeybinding failed: ${e}`);
+            // Fallback: stage-level listeners
+            try {
+                this._keyPressSignal = global.stage.connect('key-press-event', this._onKeyPressed.bind(this));
+                globalThis.log?.('[Whisper Key] Stage key listeners connected (fallback).');
+                this._stageFallbackEnabled = true;
+            } catch (e2) {
+                globalThis.log?.(`[Whisper Key] Could not connect stage key listeners: ${e2}`);
+            }
+        }
+    }
+
+    _removeHotkeys() {
+        Main.wm.removeKeybinding(HOTKEY_BINDING);
+        globalThis.log?.('[Whisper Key] Hotkey removed.');
+    }
+
+    _onKeyPressed(actor, event) {
+        if (!this._stageFallbackEnabled) return Clutter.EVENT_PROPAGATE;
+
+        const keycode = event.get_key_code();
+        const state = event.get_state();
+        const symbol = event.get_key_symbol();
+
+        // Fallback: emit toggle on Alt+Space press (debounced)
+        const hasAlt = (state & Clutter.ModifierType.MOD1_MASK) !== 0;
+        const isSpace = (symbol === Clutter.KEY_space);
+        if (hasAlt && isSpace) {
+            const now = Date.now();
+            if (now - this._lastToggleTs > 300) {
+                this._lastToggleTs = now;
+                globalThis.log?.('[Whisper Key] Fallback Alt+Space press -> toggling');
+                this._dbusImpl.emit_signal('ToggleRecording', GLib.Variant.new('()', []));
+            }
+        }
+        return Clutter.EVENT_PROPAGATE;
+    }
+
+    _onKeyReleased(actor, event) {
+        // In toggle mode, ignore releases in fallback path
+        return Clutter.EVENT_PROPAGATE;
     }
 
     _getWindowId(window) {

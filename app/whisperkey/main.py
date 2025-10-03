@@ -13,8 +13,13 @@ from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .audio_device_manager import AudioDeviceManager
 from .audio_recorder import AudioRecorder
+from .dbus_window_manager import DBusWindowManager
+from .dbus_hotkey_manager import DBusHotkeyManager, RecordingMode
+from .hotkey_service import HotkeyService as PynputHotkeyService
 from .history import TranscriptionHistory
-from .hotkey_service import HotkeyService, RecordingMode
+from .llm_processor import LLMProcessor
+from .mic_bar import MicBar
+from .settings_dialog import SettingsDialog
 from .sound_fx import SoundFX
 from .streaming_transcriber import StreamingTranscriber
 from .theme import apply_theme
@@ -136,7 +141,7 @@ class WhisperKeyApp:
         self.sound_fx: SoundFX = None
         
         # Services
-        self.hotkey_service: HotkeyService = None
+        self.hotkey_service: DBusHotkeyManager = None
         self.window_manager: WindowManager = None
         self.audio_device_manager: AudioDeviceManager = None
         
@@ -207,12 +212,59 @@ class WhisperKeyApp:
         self.transcriber.llm_processing_started.connect(self.on_llm_processing_started_main)
         self.transcriber.llm_processing_finished.connect(self.on_llm_processing_finished_main)
         
-        # Initialize hotkey service
-        self.hotkey_service = HotkeyService()
+        # Initialize hotkey service, preferring GNOME extension (DBus) with fallback to pynput
+        # Prefer DBus; only fall back to pynput if DBus is unavailable or the extension is not ACTIVE
+        self.hotkey_service = None
+        
+        try:
+            print("🎯 Attempting to use GNOME extension DBus hotkeys")
+            # Ensure extension is ACTIVE
+            if self._gnome_extension_is_active():
+                self.hotkey_service = DBusHotkeyManager()
+            else:
+                raise RuntimeError("GNOME extension not ACTIVE")
+        except Exception as e:
+            print(f"⚠️ DBus hotkeys unavailable or inactive ({e}); using Python (pynput)")
+            self.hotkey_service = PynputHotkeyService()
+
+        # Wire callbacks and start
         self.setup_hotkey_callbacks()
         self.hotkey_service.start()
         
         print("🚀 Whisper Key initialized successfully")
+
+    def _gnome_extension_in_error_state(self) -> bool:
+        """Best-effort check of GNOME extension state via gnome-extensions CLI."""
+        import subprocess
+        try:
+            result = subprocess.run(
+                ['gnome-extensions', 'info', 'whisperkey@whisperkey.app'],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.splitlines():
+                    if line.strip().startswith('State:') and 'ERROR' in line:
+                        return True
+        except Exception:
+            # If we cannot determine, do not force fallback
+            pass
+        return False
+
+    def _gnome_extension_is_active(self) -> bool:
+        """Check if GNOME extension state is ACTIVE via gnome-extensions CLI."""
+        import subprocess
+        try:
+            result = subprocess.run(
+                ['gnome-extensions', 'info', 'whisperkey@whisperkey.app'],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.splitlines():
+                    if line.strip().startswith('State:') and 'ACTIVE' in line:
+                        return True
+        except Exception:
+            pass
+        return False
     
     def setup_hotkey_callbacks(self):
         """Setup hotkey service callbacks"""
@@ -510,8 +562,6 @@ class WhisperKeyApp:
         # Update tray icon back to ready state
         if self.tray_icon:
             self.tray_icon.update_transcription_status(False)
-    
-
     
     def quit_application(self):
         """Quit the application"""

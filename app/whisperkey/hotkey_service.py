@@ -1,7 +1,7 @@
 """Simplified hotkey service for Whisper Key.
 
 Supports:
-- Win+Alt (hold-to-talk)
+- Alt+Space (hold-to-talk)
 """
 import threading
 import time
@@ -29,8 +29,8 @@ class HotkeyService:
         self.on_stop_recording: Optional[Callable] = None
         self.on_mode_change: Optional[Callable[[RecordingMode], None]] = None
         
-        # Key mappings - simplified to just Win+Alt
-        self.win_alt_combo = {keyboard.Key.cmd, keyboard.Key.alt_l}  # Win+Alt
+        # Key mappings - Alt+Space for hold-to-talk
+        self.alt_space_combo = {keyboard.Key.alt_l, keyboard.Key.space}
         
         self._recording = False
         self._lock = threading.Lock()
@@ -76,8 +76,8 @@ class HotkeyService:
             
             # Cancel pending stop if combo is restored
             if self._pending_stop_timer and self.mode == RecordingMode.HOLD_TO_TALK:
-                win_alt_restored = self.win_alt_combo.issubset(self.pressed_keys)
-                if win_alt_restored:
+                alt_space_restored = self.alt_space_combo.issubset(self.pressed_keys)
+                if alt_space_restored:
                     print(f"🔑 Combo restored, canceling pending stop")
                     self._pending_stop_timer.cancel()
                     self._pending_stop_timer = None
@@ -122,10 +122,12 @@ class HotkeyService:
         """Check if any hotkey combinations are currently pressed"""
         current_keys = self.pressed_keys.copy()
         
-        # Win+Alt (hold-to-talk) - simple and reliable
-        if self.win_alt_combo.issubset(current_keys):
+        # Alt+Space (toggle)
+        if self.alt_space_combo.issubset(current_keys):
             if self.mode == RecordingMode.IDLE:
-                self._start_hold_to_talk()
+                self._enter_hands_free_mode()
+            else:
+                self._exit_hands_free_mode()
     
     def _handle_key_release(self, key):
         """Handle key release logic based on current mode with debouncing"""
@@ -145,19 +147,17 @@ class HotkeyService:
             
             self._key_release_times[key] = current_time
             
-            # Check if Win+Alt is still pressed
-            win_alt_still_pressed = self.win_alt_combo.issubset(self.pressed_keys)
+            # Check if Alt+Space is still pressed
+            alt_space_still_pressed = self.alt_space_combo.issubset(self.pressed_keys)
             
-            # Stop if Win+Alt is no longer held (with grace period)
-            if not win_alt_still_pressed:
+            # Stop if Alt+Space is no longer held (with grace period)
+            if not alt_space_still_pressed:
                 # Debug: print(f"🔑 Key combo broken, starting grace period. Remaining keys: {self.pressed_keys}")
                 self._schedule_stop_with_grace_period()
                 
         elif self.mode == RecordingMode.HANDS_FREE:
-            # Single Space key releases hands-free mode (when no other keys are pressed)
-            if key == keyboard.Key.space and keyboard.Key.space not in self.pressed_keys:
-                print("🔑 Space released, exiting hands-free mode")
-                self._exit_hands_free_mode()
+            # Ignore releases; toggle handled on press
+            return
     
     def _start_hold_to_talk(self):
         """Start hold-to-talk recording"""

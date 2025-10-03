@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.whisperkey" path="/org/gnome/shell/extensions/whisperkey/">
+    <key name="toggle-recording" type="as">
+      <default><![CDATA[['<Alt>space']]]></default>
+      <summary>Toggle Recording Hotkey</summary>
+      <description>The keyboard shortcut to start or stop recording in Whisper Key.</description>
+    </key>
+  </schema>
+</schemalist> 
