@@ -496,35 +496,56 @@ class WhisperKeyApp:
                     print("📋 Using xclip as backup for reliability...")
                     self._set_clipboard_with_xclip(text)
                 
-                # Show eye icon before pasting
+                # Show eye icon briefly as notification
                 if self.tray_icon:
                     self.tray_icon.show_paste_ready()
                 
-                # Small delay to show the eye icon
-                import time
-                time.sleep(0.2)
-                
-                # Focus previous window and paste with specified method
-                success = self.window_manager.paste_to_previous_window(paste_method=paste_method)
-                if success:
-                    print(f"✅ Text pasted successfully with {paste_method}")
-                    if self.tray_icon:
-                        self.tray_icon.reset_to_ready()
-                        self.tray_icon.show_message("Whisper Key", "Text pasted successfully!", timeout=2000)
-                else:
-                    paste_display = paste_method.replace('+', '+').upper()
-                    print(f"❌ Auto-paste failed - please press {paste_display}")
-                    if self.tray_icon:
-                        self.tray_icon.reset_to_ready()
-                        self.tray_icon.show_message("Whisper Key - Paste Ready", 
-                                                  f"Text copied to clipboard.\nPress {paste_display} to paste.", 
-                                                  timeout=5000)
+                # Brief delay to show the eye icon, then reset before pasting
+                from datetime import datetime
+                timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+                print(f"⏱️ [{timestamp}] Starting 500ms timer before paste")
+                QTimer.singleShot(500, lambda: self._do_paste(paste_method, text))
             except Exception as e:
-                print(f"❌ Error pasting text: {e}")
+                print(f"❌ Error preparing to paste: {e}")
                 if self.tray_icon:
                     self.tray_icon.reset_to_ready()
         else:
             print("❌ No window manager available for pasting")
+    
+    def _do_paste(self, paste_method: str, text: str):
+        """Execute the paste operation after showing the eye icon"""
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        print(f"⏱️ [{timestamp}] Timer fired! _do_paste called, about to reset icon")
+        try:
+            # Reset icon before starting paste
+            if self.tray_icon:
+                self.tray_icon.reset_to_ready()
+            
+            # Focus previous window and paste with specified method
+            if self.window_manager:
+                success = self.window_manager.paste_to_previous_window(paste_method=paste_method)
+                if success:
+                    timestamp_end = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+                    print(f"✅ [{timestamp_end}] Text pasted successfully with {paste_method}")
+                else:
+                    paste_display = paste_method.replace('+', '+').upper()
+                    print(f"❌ Auto-paste failed - please press {paste_display}")
+                    if self.tray_icon:
+                        # Use warning to ensure the popup is still visible when paste fails
+                        from PyQt6.QtWidgets import QMessageBox
+                        self.tray_icon.show_message(
+                            "Whisper Key - Paste Ready",
+                            f"Text copied to clipboard.\nPress {paste_display} to paste.",
+                            icon=QMessageBox.Icon.Warning,
+                            timeout=5000
+                        )
+            else:
+                print("❌ No window manager available for pasting")
+        except Exception as e:
+            print(f"❌ Error pasting text: {e}")
+            if self.tray_icon:
+                self.tray_icon.reset_to_ready()
     
     def _set_clipboard_with_xclip(self, text: str):
         """Set clipboard using xclip as fallback/backup"""

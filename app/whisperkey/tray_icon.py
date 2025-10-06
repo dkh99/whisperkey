@@ -490,11 +490,23 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         self.settings_changed.emit()
     
     def show_message(self, title: str, message: str, icon=QMessageBox.Icon.Information, timeout: int = 5000):
-        """Show a system tray message"""
+        """Show a system tray message. Suppress Information-level ("i") popups."""
+        # Suppress informational popups entirely to avoid the "i" icon bubble
+        if icon == QMessageBox.Icon.Information:
+            print(f"🔕 Info popup suppressed: {title} - {message}")
+            return
+
+        # Map QMessageBox icon to QSystemTrayIcon message icon
+        qt_tray_icon = QSystemTrayIcon.MessageIcon.NoIcon
+        if icon == QMessageBox.Icon.Warning:
+            qt_tray_icon = QSystemTrayIcon.MessageIcon.Warning
+        elif icon == QMessageBox.Icon.Critical:
+            qt_tray_icon = QSystemTrayIcon.MessageIcon.Critical
+
         if self.supportsMessages():
-            self.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, timeout)
+            self.showMessage(title, message, qt_tray_icon, timeout)
         else:
-            # Fallback to message box
+            # Fallback to message box for non-information messages only
             msg_box = QMessageBox()
             msg_box.setIcon(icon)
             msg_box.setWindowTitle(title)
@@ -521,6 +533,7 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
     
     def update_transcription_status(self, transcribing: bool, partial_text: str = ""):
         """Update tray icon to show transcription progress with rocket icon"""
+        from datetime import datetime
         if transcribing:
             self.setIcon(self.icons['transcribing'])  # Show rocket icon
             if partial_text:
@@ -534,7 +547,8 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
             tooltip = "Whisper Key - Ready"
         
         self.setToolTip(tooltip)
-        print(f"🎯 Icon updated: {'rocket' if transcribing else 'microphone'} - {tooltip}")
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        print(f"🎯 [{timestamp}] Icon updated: {'rocket' if transcribing else 'microphone'} - {tooltip}")
         
         # Update history menu when transcription is complete
         if not transcribing:
@@ -542,15 +556,30 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
     
     def show_paste_ready(self):
         """Show eye icon when ready to paste"""
+        from datetime import datetime
+        from PyQt6.QtWidgets import QApplication
         self.setIcon(self.icons['pasting'])
         self.setToolTip("Whisper Key - 👁️ Ready to paste!")
-        print("🎯 Icon updated: eye - Ready to paste!")
+        # Force immediate visual update
+        QApplication.processEvents()
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        print(f"🎯 [{timestamp}] Icon updated: eye - Ready to paste! (visual update forced)")
     
     def reset_to_ready(self):
         """Reset icon to ready state"""
+        from datetime import datetime
+        import traceback
+        from PyQt6.QtWidgets import QApplication
         self.setIcon(self.icons['ready'])
         self.setToolTip("Whisper Key - Ready")
-        print("🎯 Icon updated: microphone - Ready")
+        # Force immediate visual update
+        QApplication.processEvents()
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        print(f"🎯 [{timestamp}] Icon updated: microphone - Ready (visual update forced)")
+        # Print stack trace to see who called this
+        print("🔍 Stack trace for reset_to_ready:")
+        for line in traceback.format_stack()[:-1]:
+            print(f"    {line.strip()}")
     
     def _convert_to_local_time(self, utc_datetime: datetime) -> datetime:
         """Convert UTC datetime to local system time (handles BST/GMT automatically)"""
@@ -563,7 +592,6 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         return local_datetime
 
     def notify_transcription_complete(self, text: str):
-        """Notify that a new transcription is complete"""
-        preview = text[:50] + "..." if len(text) > 50 else text
-        self.show_message("Transcription Complete", f'"{preview}"', timeout=3000)
-        self.update_history_menu() 
+        """Notify that a new transcription is complete (suppress info popup)."""
+        # No info popup to avoid the "i" bubble; just refresh history
+        self.update_history_menu()
