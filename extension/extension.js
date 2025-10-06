@@ -133,7 +133,8 @@ export default class DictationWindowExtension extends Extension {
                 Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
                 () => {
                     // Toggle recording on each keybinding activation
-                    globalThis.log?.('[Whisper Key] Hotkey activated (Alt+Space), toggling');
+                    const timestamp = Math.floor(Date.now() / 100); // 100ms precision
+                    globalThis.log?.(`[Whisper Key] Hotkey activated (Alt+Space), toggling (keypress_id: ${timestamp})`);
                     this._dbusImpl.emit_signal('ToggleRecording', GLib.Variant.new('()', []));
                 }
             );
@@ -171,7 +172,8 @@ export default class DictationWindowExtension extends Extension {
             const now = Date.now();
             if (now - this._lastToggleTs > 300) {
                 this._lastToggleTs = now;
-                globalThis.log?.('[Whisper Key] Fallback Alt+Space press -> toggling');
+                const timestamp = Math.floor(now / 100); // 100ms precision
+                globalThis.log?.(`[Whisper Key] Fallback Alt+Space press -> toggling (keypress_id: ${timestamp})`);
                 this._dbusImpl.emit_signal('ToggleRecording', GLib.Variant.new('()', []));
             }
         }

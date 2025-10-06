@@ -48,6 +48,10 @@ class DBusHotkeyManager(QObject):
         self.mode = RecordingMode.IDLE
         self._recording = False
         
+        # Keypress tracking to prevent duplicate sounds
+        self._processed_keypresses = set()
+        self._keypress_timeout = 1.0  # 1 second timeout for keypress tracking
+        
         # Connect to DBus signals
         self._connect_signals()
         
@@ -72,8 +76,31 @@ class DBusHotkeyManager(QObject):
     @pyqtSlot()
     def _on_dbus_toggle_recording(self):
         """Handle ToggleRecording signal from DBus."""
-        print("📡 Received ToggleRecording signal from GNOME")
+        import time
+        current_time = time.time()
+        
+        # Generate unique keypress ID based on timestamp (rounded to nearest 100ms)
+        keypress_id = int(current_time * 10)  # 100ms precision
+        
+        # Check if we've already processed this keypress
+        if keypress_id in self._processed_keypresses:
+            print(f"📡 Keypress {keypress_id} already processed, ignoring duplicate")
+            return
+        
+        # Add to processed set and clean up old entries
+        self._processed_keypresses.add(keypress_id)
+        self._cleanup_old_keypresses(current_time)
+        
+        print(f"📡 Received ToggleRecording signal from GNOME (keypress_id: {keypress_id})")
         self.toggle_recording_signal.emit()
+    
+    def _cleanup_old_keypresses(self, current_time: float):
+        """Remove old keypress IDs from tracking set"""
+        cutoff_time = current_time - self._keypress_timeout
+        cutoff_id = int(cutoff_time * 10)
+        
+        # Remove old keypress IDs
+        self._processed_keypresses = {kp_id for kp_id in self._processed_keypresses if kp_id > cutoff_id}
     
     def _handle_toggle_recording(self):
         """Handle toggle recording request (press once to start/stop)."""

@@ -15,6 +15,11 @@ class SoundFX:
     def __init__(self):
         self.start_sound: Optional[QSoundEffect] = None
         self.stop_sound: Optional[QSoundEffect] = None
+        
+        # Sound debouncing to prevent double playback
+        self._last_sound_time = 0
+        self._sound_debounce_delay = 0.3  # 300ms debounce delay
+        
         self._setup_sounds()
     
     def _setup_sounds(self):
@@ -133,26 +138,60 @@ class SoundFX:
     def play_start(self):
         """Play recording start sound (non-blocking)"""
         if self.start_sound:
-            threading.Thread(target=self._play_sound, args=(self.start_sound,), daemon=True).start()
+            threading.Thread(target=self._play_sound_with_debounce, args=(self.start_sound,), daemon=True).start()
         else:
             print("🔊 Start sound not available")
     
     def play_stop(self):
         """Play recording stop sound (non-blocking)"""
         if self.stop_sound:
-            threading.Thread(target=self._play_sound, args=(self.stop_sound,), daemon=True).start()
+            threading.Thread(target=self._play_sound_with_debounce, args=(self.stop_sound,), daemon=True).start()
         else:
             print("🔊 Stop sound not available")
+    
+    def _play_sound_with_debounce(self, sound_effect: QSoundEffect):
+        """Play sound with debouncing to prevent double playback"""
+        import time
+        current_time = time.time()
+        
+        # Check if we've played a sound recently
+        if current_time - self._last_sound_time < self._sound_debounce_delay:
+            print(f"🔊 Sound debounced - too soon after last sound ({current_time - self._last_sound_time:.3f}s ago)")
+            return
+        
+        # Update last sound time and play
+        self._last_sound_time = current_time
+        self._play_sound(sound_effect)
     
     def _play_sound(self, sound_effect: QSoundEffect):
         """Internal method to play a sound effect"""
         try:
+            # Check if Qt sound is loaded, if not use system fallback immediately
+            if not sound_effect.isLoaded():
+                print(f"🔊 Qt sound not loaded, using system fallback")
+                self._play_system_sound(sound_effect)
+                return
+            
             # Try Qt sound first
             print(f"🔊 Attempting to play sound: {sound_effect.source()}")
             sound_effect.play()
             print(f"🔊 Qt sound play() called")
             
-            # Also try system audio as fallback to ensure it's heard
+            # Use system audio as fallback if Qt sound fails
+            import time
+            time.sleep(0.1)  # Wait 100ms to see if Qt sound starts
+            
+            # Check if Qt sound actually played by trying system fallback as backup
+            self._play_system_sound(sound_effect)
+                        
+        except Exception as e:
+            print(f"⚠️ Error playing sound: {e}")
+            # Fallback to system sound on any error
+            self._play_system_sound(sound_effect)
+    
+    def _play_system_sound(self, sound_effect: QSoundEffect):
+        """Play sound using system audio tools as fallback"""
+        try:
             import subprocess
             import urllib.parse
             
@@ -161,28 +200,34 @@ class SoundFX:
             if url_string.startswith('file://'):
                 file_path = urllib.parse.unquote(url_string[7:])  # Remove 'file://' prefix
                 
-                # Try paplay (PulseAudio) which worked in your test
+                # Try paplay (PulseAudio) first
                 try:
                     subprocess.run(['paplay', file_path], 
                                  check=False, 
                                  stdout=subprocess.DEVNULL, 
                                  stderr=subprocess.DEVNULL,
                                  timeout=2)
-                    print(f"🔊 System audio fallback played")
+                    print(f"🔊 System audio (paplay) played")
+                    return
                 except:
-                    # If paplay fails, try aplay
-                    try:
-                        subprocess.run(['aplay', file_path], 
-                                     check=False, 
-                                     stdout=subprocess.DEVNULL, 
-                                     stderr=subprocess.DEVNULL,
-                                     timeout=2)
-                        print(f"🔊 ALSA audio fallback played")
-                    except:
-                        pass
+                    pass
+                
+                # If paplay fails, try aplay
+                try:
+                    subprocess.run(['aplay', file_path], 
+                                 check=False, 
+                                 stdout=subprocess.DEVNULL, 
+                                 stderr=subprocess.DEVNULL,
+                                 timeout=2)
+                    print(f"🔊 System audio (aplay) played")
+                    return
+                except:
+                    pass
+                    
+                print(f"⚠️ Both paplay and aplay failed for {file_path}")
                         
         except Exception as e:
-            print(f"⚠️ Error playing sound: {e}")
+            print(f"⚠️ Error in system sound fallback: {e}")
     
     def set_volume(self, volume: float):
         """Set volume for all sounds (0.0 to 1.0)"""

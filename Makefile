@@ -1,7 +1,7 @@
 # Root Makefile for Whisper Key Monorepo
 
 # Configuration
-VERSION := 0.2.0
+VERSION := 0.2.1
 EXTENSION_UUID := whisperkey@whisperkey.app
 PYTHON_APP_DIR := app
 BUILD_DIR := build

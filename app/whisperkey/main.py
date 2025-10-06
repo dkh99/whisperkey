@@ -320,6 +320,10 @@ class WhisperKeyApp:
     def start_recording(self):
         """Start audio recording"""
         if self.recording_thread.isRunning():
+            print("⚠️ Recording already in progress, but playing start sound for feedback")
+            # Still play the start sound for user feedback even if recording is already active
+            if self.sound_fx:
+                self.sound_fx.play_start()
             return
         
         print("🎤 Starting recording...")
