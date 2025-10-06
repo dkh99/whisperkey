@@ -166,28 +166,13 @@ class SoundFX:
     def _play_sound(self, sound_effect: QSoundEffect):
         """Internal method to play a sound effect"""
         try:
-            # Check if Qt sound is loaded, if not use system fallback immediately
-            if not sound_effect.isLoaded():
-                print(f"🔊 Qt sound not loaded, using system fallback")
-                self._play_system_sound(sound_effect)
-                return
-            
-            # Try Qt sound first
-            print(f"🔊 Attempting to play sound: {sound_effect.source()}")
-            sound_effect.play()
-            print(f"🔊 Qt sound play() called")
-            
-            # Use system audio as fallback if Qt sound fails
-            import time
-            time.sleep(0.1)  # Wait 100ms to see if Qt sound starts
-            
-            # Check if Qt sound actually played by trying system fallback as backup
+            # Always use system fallback for reliability during processing
+            # Qt sound often shows loaded: False and doesn't work consistently
+            print(f"🔊 Playing sound via system audio for reliability")
             self._play_system_sound(sound_effect)
                         
         except Exception as e:
             print(f"⚠️ Error playing sound: {e}")
-            # Fallback to system sound on any error
-            self._play_system_sound(sound_effect)
     
     def _play_system_sound(self, sound_effect: QSoundEffect):
         """Play sound using system audio tools as fallback"""
@@ -200,29 +185,26 @@ class SoundFX:
             if url_string.startswith('file://'):
                 file_path = urllib.parse.unquote(url_string[7:])  # Remove 'file://' prefix
                 
-                # Try paplay (PulseAudio) first
+                # Use Popen for non-blocking playback (doesn't wait for sound to finish)
+                # This ensures sounds play even during transcription processing
                 try:
-                    subprocess.run(['paplay', file_path], 
-                                 check=False, 
-                                 stdout=subprocess.DEVNULL, 
-                                 stderr=subprocess.DEVNULL,
-                                 timeout=2)
-                    print(f"🔊 System audio (paplay) played")
+                    subprocess.Popen(['paplay', file_path], 
+                                   stdout=subprocess.DEVNULL, 
+                                   stderr=subprocess.DEVNULL)
+                    print(f"🔊 System audio (paplay) started")
                     return
-                except:
-                    pass
+                except Exception as e:
+                    print(f"⚠️ paplay failed: {e}")
                 
                 # If paplay fails, try aplay
                 try:
-                    subprocess.run(['aplay', file_path], 
-                                 check=False, 
-                                 stdout=subprocess.DEVNULL, 
-                                 stderr=subprocess.DEVNULL,
-                                 timeout=2)
-                    print(f"🔊 System audio (aplay) played")
+                    subprocess.Popen(['aplay', file_path], 
+                                   stdout=subprocess.DEVNULL, 
+                                   stderr=subprocess.DEVNULL)
+                    print(f"🔊 System audio (aplay) started")
                     return
-                except:
-                    pass
+                except Exception as e:
+                    print(f"⚠️ aplay failed: {e}")
                     
                 print(f"⚠️ Both paplay and aplay failed for {file_path}")
                         
