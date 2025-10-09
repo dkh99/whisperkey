@@ -568,7 +568,6 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
     def reset_to_ready(self):
         """Reset icon to ready state"""
         from datetime import datetime
-        import traceback
         from PyQt6.QtWidgets import QApplication
         self.setIcon(self.icons['ready'])
         self.setToolTip("Whisper Key - Ready")
@@ -576,10 +575,6 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         QApplication.processEvents()
         timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
         print(f"🎯 [{timestamp}] Icon updated: microphone - Ready (visual update forced)")
-        # Print stack trace to see who called this
-        print("🔍 Stack trace for reset_to_ready:")
-        for line in traceback.format_stack()[:-1]:
-            print(f"    {line.strip()}")
     
     def _convert_to_local_time(self, utc_datetime: datetime) -> datetime:
         """Convert UTC datetime to local system time (handles BST/GMT automatically)"""
