@@ -66,16 +66,39 @@ sudo pacman -S ydotool
 
 ## 🔧 Installation
 
-### Automatic Installation (Recommended)
+### Debian/Ubuntu Package (Recommended) 🆕
 
-The simplest way to install Whisper Key:
+**For Ubuntu/Debian users**, the easiest way to install with all prerequisites:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd whisperkey
 
-# Install everything
+# Build and install .deb package (handles ALL dependencies)
+make deb-install
+```
+
+This will:
+- ✅ Install ALL system prerequisites automatically
+- ✅ Set up Python environment with `uv`
+- ✅ Install Whisper Key system-wide
+- ✅ Configure auto-startup 
+- ✅ Set up system tray integration
+- ✅ Enable Wayland support (ydotool)
+
+**See**: `QUICK-INSTALL-UBUNTU.md` for one-line installation, or `INSTALL-DEBIAN.md` for detailed guide.
+
+### Automatic Installation (Other Distributions)
+
+For non-Debian/Ubuntu systems:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd whisperkey
+
+# Install everything (requires manual prerequisite installation)
 make all
 ```
 

@@ -1,0 +1,140 @@
+==========================================
+  WhisperKey v0.2.1
+  Installation Instructions
+==========================================
+
+📦 Package: whisperkey_0.2.1_all.deb
+📊 Size: 100KB
+🖥️  Works on: Ubuntu 22.04+, Debian 12+
+
+==========================================
+  QUICK INSTALLATION
+==========================================
+
+1. Open a terminal in the folder containing this file
+
+2. Run these commands:
+
+   sudo dpkg -i whisperkey_0.2.1_all.deb
+   sudo apt-get install -f
+
+3. Log out and log back in
+
+4. Enable the GNOME extension:
+
+   gnome-extensions enable whisperkey@whisperkey.app
+
+5. Done! Look for the microphone icon in your system tray.
+
+==========================================
+  WHAT THIS INSTALLS
+==========================================
+
+✅ WhisperKey voice transcription app
+✅ All system dependencies (Python, PortAudio, etc.)
+✅ GNOME Shell extension for hotkeys
+✅ Wayland support (ydotool)
+✅ Auto-start on login
+✅ System tray integration
+
+==========================================
+  HOW TO USE
+==========================================
+
+• Press Alt+Space - Hold and speak, release to transcribe
+• Press Super+Alt+G - Alternative hotkey
+• Right-click tray icon - Access history and settings
+• Double-click tray icon - Paste last transcription
+
+==========================================
+  REQUIREMENTS
+==========================================
+
+✓ Ubuntu 22.04+ or Debian 12+
+✓ GNOME desktop environment (version 42+)
+✓ Python 3.11 or higher (auto-installed)
+✓ Internet connection (for first-time setup)
+✓ Microphone
+
+==========================================
+  TROUBLESHOOTING
+==========================================
+
+Problem: "dpkg: dependency problems"
+Solution: Run: sudo apt-get install -f
+
+Problem: Hotkeys don't work after installation
+Solution: Log out and back in, then enable extension
+
+Problem: Extension not found
+Solution: Run: gnome-extensions enable whisperkey@whisperkey.app
+
+Problem: No microphone icon
+Solution: Check if running: ps aux | grep whisperkey
+         Start manually: whisperkey
+
+Problem: Permission denied (Wayland)
+Solution: Log out and back in (ydotool group membership)
+
+==========================================
+  VERIFY INSTALLATION
+==========================================
+
+Check everything is working:
+
+  # Is WhisperKey installed?
+  whisperkey --version
+
+  # Is extension enabled?
+  gnome-extensions list | grep whisperkey
+
+  # Are hotkeys configured?
+  gsettings get org.gnome.shell.extensions.whisperkey toggle-recording
+
+Should show: ['<Alt>space', '<Super><Alt>g']
+
+==========================================
+  UNINSTALLATION
+==========================================
+
+To remove WhisperKey:
+
+  # Remove but keep settings:
+  sudo apt-get remove whisperkey
+
+  # Remove everything (complete purge):
+  sudo apt-get purge whisperkey
+
+==========================================
+  SUPPORT
+==========================================
+
+For help and documentation:
+- Check /usr/share/doc/whisperkey/
+- Run: man whisperkey (if available)
+- Visit the project repository
+
+==========================================
+  NOTES
+==========================================
+
+• The installer will download and install 'uv' package
+  manager automatically if not present
+
+• On first run, WhisperKey will download AI models
+  (~1.5GB). This may take a few minutes.
+
+• The application runs in the background and uses
+  minimal system resources when idle.
+
+• All transcriptions are processed locally on your
+  machine - nothing is sent to the cloud.
+
+==========================================
+
+Installation package built on: October 9, 2025
+Package format: Debian/Ubuntu .deb
+Compatible architectures: all
+
+
+

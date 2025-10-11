@@ -43,7 +43,8 @@ class Transcriber:
                 self.model_size,
                 device=device,
                 compute_type=compute_type,
-                download_root=os.path.expanduser("~/.cache/whisper")
+                download_root=os.path.expanduser("~/.cache/whisper"),
+                local_files_only=True  # Use only cached files, don't access internet
             )
             print(f"Model loaded successfully on {device} with {compute_type}")
             

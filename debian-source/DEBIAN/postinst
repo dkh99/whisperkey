@@ -1,0 +1,170 @@
+#!/bin/bash
+set -e
+
+PACKAGE_NAME="whisperkey"
+VERSION="0.2.1"
+EXTENSION_UUID="whisperkey@whisperkey.app"
+INSTALL_DIR="/usr/share/whisperkey"
+
+echo "=========================================="
+echo "  Installing WhisperKey v${VERSION}"
+echo "=========================================="
+echo ""
+
+# Function to check if running as root
+if [ "$EUID" -eq 0 ] && [ -z "$SUDO_USER" ]; then
+    echo "⚠️  Warning: Running as root without sudo."
+    echo "   User-specific setup may not work correctly."
+    REAL_USER="$USER"
+    REAL_HOME="$HOME"
+else
+    REAL_USER="${SUDO_USER:-$USER}"
+    REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+fi
+
+echo "📦 Setting up for user: $REAL_USER"
+echo ""
+
+# 1. Install uv package manager if not present
+echo "🔧 Checking for uv package manager..."
+if ! su - "$REAL_USER" -c 'command -v uv' >/dev/null 2>&1; then
+    echo "   Installing uv..."
+    # Install as the real user, not root
+    su - "$REAL_USER" -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || true
+    echo "   ✅ uv installed"
+else
+    echo "   ✅ uv already installed"
+fi
+echo ""
+
+# Ensure pipx is in PATH and configured
+echo "🔧 Configuring pipx..."
+if command -v pipx >/dev/null 2>&1; then
+    su - "$REAL_USER" -c 'pipx ensurepath' || true
+    echo "   ✅ pipx configured"
+else
+    echo "   ⚠️  pipx not found in PATH"
+fi
+echo ""
+
+# 2. Install Python application with pipx
+echo "📦 Installing WhisperKey Python application..."
+if [ -f "$INSTALL_DIR/whisperkey-0.2.1-py3-none-any.whl" ]; then
+    # Uninstall old version if exists
+    su - "$REAL_USER" -c "pipx uninstall whisperkey 2>/dev/null || true"
+    
+    # Install new version
+    su - "$REAL_USER" -c "pipx install '$INSTALL_DIR/whisperkey-0.2.1-py3-none-any.whl'" || echo "   ⚠️  pipx install failed, may need manual installation"
+    echo "   ✅ WhisperKey application installed"
+else
+    echo "   ⚠️  Wheel file not found at $INSTALL_DIR/, skipping Python installation"
+fi
+echo ""
+
+# 3. Set up ydotool for Wayland support
+echo "🔧 Setting up Wayland support (ydotool)..."
+if command -v ydotool >/dev/null 2>&1; then
+    # Enable ydotool service
+    systemctl enable ydotool.service 2>/dev/null || true
+    systemctl start ydotool.service 2>/dev/null || true
+    
+    # Add user to input group
+    usermod -a -G input "$REAL_USER" 2>/dev/null || true
+    echo "   ✅ ydotool configured (logout required for group changes)"
+else
+    echo "   ⚠️  ydotool not found, Wayland support may be limited"
+fi
+echo ""
+
+# 4. Install GNOME extension for the user
+echo "🔌 Installing GNOME Shell extension..."
+EXTENSION_DIR="$REAL_HOME/.local/share/gnome-shell/extensions/$EXTENSION_UUID"
+
+if [ -d "$INSTALL_DIR/extension" ]; then
+    # Create extension directory
+    su - "$REAL_USER" -c "mkdir -p '$EXTENSION_DIR'"
+    
+    # Copy extension files
+    cp -r "$INSTALL_DIR/extension"/* "$EXTENSION_DIR/"
+    chown -R "$REAL_USER":"$REAL_USER" "$EXTENSION_DIR"
+    
+    # Compile schemas
+    if [ -d "$EXTENSION_DIR/schemas" ]; then
+        su - "$REAL_USER" -c "glib-compile-schemas '$EXTENSION_DIR/schemas'" 2>/dev/null || true
+    fi
+    
+    echo "   ✅ GNOME extension installed"
+    echo "   ℹ️  Enable it after login with: gnome-extensions enable $EXTENSION_UUID"
+else
+    echo "   ⚠️  Extension files not found"
+fi
+echo ""
+
+# 5. Create autostart entry
+echo "🚀 Setting up autostart..."
+AUTOSTART_DIR="$REAL_HOME/.config/autostart"
+AUTOSTART_FILE="$AUTOSTART_DIR/whisperkey.desktop"
+
+su - "$REAL_USER" -c "mkdir -p '$AUTOSTART_DIR'"
+
+cat > "$AUTOSTART_FILE" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=WhisperKey
+Comment=Voice dictation application for Linux
+Exec=whisperkey
+Icon=audio-input-microphone
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+StartupNotify=false
+Categories=AudioVideo;Audio;
+EOF
+
+chown "$REAL_USER":"$REAL_USER" "$AUTOSTART_FILE"
+chmod 644 "$AUTOSTART_FILE"
+echo "   ✅ Autostart configured"
+echo ""
+
+# 6. Configure GNOME extension hotkeys (if in a user session)
+if [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    echo "🎹 Configuring hotkeys..."
+    su - "$REAL_USER" -c "
+        export DBUS_SESSION_BUS_ADDRESS='$DBUS_SESSION_BUS_ADDRESS'
+        gsettings reset org.gnome.shell.extensions.whisperkey toggle-recording 2>/dev/null || true
+        gsettings set org.gnome.shell.extensions.whisperkey toggle-recording \"['<Alt>space', '<Super><Alt>g']\" 2>/dev/null || true
+    " || true
+    echo "   ✅ Hotkeys configured"
+else
+    echo "   ℹ️  Skipping hotkey configuration (no active session)"
+    echo "   ℹ️  Run after login: gsettings set org.gnome.shell.extensions.whisperkey toggle-recording \"['<Alt>space', '<Super><Alt>g']\""
+fi
+echo ""
+
+echo "=========================================="
+echo "  ✅ Installation Complete!"
+echo "=========================================="
+echo ""
+echo "📝 Next Steps:"
+echo "   1. Log out and log back in to activate:"
+echo "      • GNOME extension and hotkeys"
+echo "      • ydotool permissions (Wayland)"
+echo "      • Autostart configuration"
+echo ""
+echo "   2. Enable the GNOME extension:"
+echo "      gnome-extensions enable $EXTENSION_UUID"
+echo ""
+echo "   3. Start WhisperKey:"
+echo "      • It will auto-start on next login, or"
+echo "      • Run manually: whisperkey"
+echo ""
+echo "   4. Use the hotkeys:"
+echo "      • Alt+Space - Toggle voice recording"
+echo "      • Super+Alt+G - Alternative hotkey"
+echo ""
+echo "📚 Documentation: /usr/share/doc/whisperkey/"
+echo ""
+
+exit 0
+
+

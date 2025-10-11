@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+PACKAGE_NAME="whisperkey"
+EXTENSION_UUID="whisperkey@whisperkey.app"
+
+echo "Removing WhisperKey..."
+
+# Get the real user
+if [ "$EUID" -eq 0 ] && [ -z "$SUDO_USER" ]; then
+    REAL_USER="$USER"
+    REAL_HOME="$HOME"
+else
+    REAL_USER="${SUDO_USER:-$USER}"
+    REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+fi
+
+# Stop any running instances
+echo "Stopping WhisperKey instances..."
+pkill -f whisperkey 2>/dev/null || true
+
+# Disable GNOME extension
+if command -v gnome-extensions >/dev/null 2>&1; then
+    echo "Disabling GNOME extension..."
+    su - "$REAL_USER" -c "gnome-extensions disable $EXTENSION_UUID 2>/dev/null || true"
+fi
+
+echo "WhisperKey stopped."
+
+exit 0
+
+

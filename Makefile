@@ -11,7 +11,7 @@ DIST_DIR := dist
 IS_IN_APP := $(if $(wildcard pyproject.toml),1,0)
 
 # Main targets
-.PHONY: all help clean check-tools python extension configure-hotkey package dist lint check-version
+.PHONY: all help clean check-tools python extension configure-hotkey package dist lint check-version deb deb-install deb-clean
 
 all: check-tools python extension configure-hotkey
 	@echo ""
@@ -37,6 +37,11 @@ help:
 	@echo "  clean        - Remove build artifacts"
 	@echo "  package      - Create release package"
 	@echo "  dist         - Create distribution build with linting"
+	@echo ""
+	@echo "Debian Package:"
+	@echo "  deb          - Build .deb package for Ubuntu/Debian"
+	@echo "  deb-install  - Build and install .deb package"
+	@echo "  deb-clean    - Clean debian package build artifacts"
 	@echo ""
 	@echo "Development:"
 	@echo "  lint         - Run linting and validation"
@@ -110,6 +115,33 @@ clean:
 	@rm -rf $(BUILD_DIR) $(DIST_DIR)
 	@cd $(PYTHON_APP_DIR) && rm -rf dist/ build/ *.egg-info/ .venv/
 	@echo "✅ Clean complete"
+
+# Debian package targets
+deb: check-tools
+	@echo "🔨 Building Debian package..."
+	@./build-deb.sh
+
+deb-install: deb
+	@echo "📦 Installing Debian package..."
+	@DEB_FILE=$$(ls $(DIST_DIR)/whisperkey_*.deb | head -n1); \
+	if [ -n "$$DEB_FILE" ]; then \
+		echo "Installing $$DEB_FILE..."; \
+		sudo dpkg -i "$$DEB_FILE" || true; \
+		echo "Fixing dependencies..."; \
+		sudo apt-get install -f -y; \
+		echo "✅ Installation complete!"; \
+		echo ""; \
+		echo "Please log out and back in to activate all features."; \
+	else \
+		echo "❌ No .deb file found. Run 'make deb' first."; \
+		exit 1; \
+	fi
+
+deb-clean:
+	@echo "🧹 Cleaning debian package artifacts..."
+	@rm -rf debian-package
+	@rm -f $(DIST_DIR)/whisperkey_*.deb
+	@echo "✅ Debian artifacts cleaned"
 
 # Create release package  
 package: clean python
