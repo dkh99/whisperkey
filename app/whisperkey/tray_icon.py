@@ -203,6 +203,11 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         settings_action.triggered.connect(self.show_settings)
         self.menu.addAction(settings_action)
         
+        # Restart Extension
+        restart_action = QAction("🔄 Restart Extension", self)
+        restart_action.triggered.connect(self.restart_extension)
+        self.menu.addAction(restart_action)
+        
         # About
         about_action = QAction("ℹ️ About Whisper Key", self)
         about_action.triggered.connect(self.show_about)
@@ -408,16 +413,50 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
             else:
                 self.show_message("No History", "No recent transcriptions found.", QMessageBox.Icon.Information)
     
+    def restart_extension(self):
+        """Restart the GNOME extension to fix hotkey detection"""
+        import subprocess
+        try:
+            # Disable extension
+            subprocess.run(['gnome-extensions', 'disable', 'whisperkey@whisperkey.app'],
+                         check=False,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL,
+                         timeout=5)
+            
+            # Wait a bit
+            import time
+            time.sleep(1)
+            
+            # Enable extension
+            subprocess.run(['gnome-extensions', 'enable', 'whisperkey@whisperkey.app'],
+                         check=False,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL,
+                         timeout=5)
+            
+            print("🔄 Extension restarted")
+            self.showMessage("Extension Restarted", 
+                           "GNOME extension has been reloaded. Hotkeys should work now.",
+                           QSystemTrayIcon.MessageIcon.Information,
+                           2000)
+        except Exception as e:
+            print(f"⚠️ Failed to restart extension: {e}")
+            self.showMessage("Restart Failed", 
+                           "Failed to restart extension. Try manually: gnome-extensions disable/enable whisperkey",
+                           QSystemTrayIcon.MessageIcon.Warning,
+                           3000)
+    
     def show_about(self):
         """Show about dialog centered on screen"""
         # Create message box
         msg_box = QMessageBox()
         msg_box.setWindowTitle("About Whisper Key")
-        msg_box.setText("Whisper Key v0.2.0\n\n"
+        msg_box.setText("Whisper Key v0.2.2\n\n"
                        "Voice transcription with global hotkeys.\n"
                        "Fast, reliable speech-to-text for Linux.\n\n"
                        "Hotkeys:\n"
-                       "• Win+Alt: Hold to talk\n\n"
+                       "• Alt+Space or Super+Alt+G: Toggle recording\n\n"
                        "Features:\n"
                        "• Ultra-fast pasting (0.25s)\n"
                        "• History access via tray menu\n"
