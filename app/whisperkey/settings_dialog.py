@@ -56,6 +56,9 @@ class WhisperKeySettings:
                 "temperature": 0.1,
                 "max_tokens": 500
             },
+            "transcription": {
+                "deepgram_api_key": ""
+            },
             "audio": {
                 "model": "base",
                 "language": "auto",
@@ -196,6 +199,13 @@ class WhisperKeySettings:
         
         # Fallback to environment variable
         return os.getenv("OPENAI_API_KEY")
+
+    def get_deepgram_api_key(self) -> Optional[str]:
+        """Get Deepgram API key from settings or environment."""
+        api_key = str(self.get("transcription.deepgram_api_key", "")).strip()
+        if api_key:
+            return api_key
+        return os.getenv("DEEPGRAM_API_KEY")
     
     def is_llm_enabled(self) -> bool:
         """Check if LLM processing is enabled."""
@@ -504,6 +514,41 @@ class SettingsDialog(QDialog):
         
         audio_group.setLayout(audio_layout)
         layout.addWidget(audio_group)
+
+        # Cloud transcription group
+        cloud_group = QGroupBox("Cloud Transcription (Optional)")
+        cloud_layout = QFormLayout()
+
+        self.deepgram_key_edit = QLineEdit()
+        self.deepgram_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.deepgram_key_edit.setPlaceholderText("Enter your Deepgram API key...")
+        self.deepgram_key_edit.setToolTip("If provided, VoxVibe will use Deepgram for faster transcription. Leave blank to keep Whisper.")
+
+        toggle_layout = QHBoxLayout()
+        toggle_layout.setContentsMargins(0, 0, 0, 0)
+        toggle_layout.setSpacing(6)
+        toggle_layout.addWidget(self.deepgram_key_edit)
+
+        self.deepgram_reveal_btn = QPushButton("Show")
+        self.deepgram_reveal_btn.setCheckable(True)
+        self.deepgram_reveal_btn.setToolTip("Temporarily reveal the Deepgram API key")
+        self.deepgram_reveal_btn.toggled.connect(self.on_deepgram_reveal_toggled)
+        toggle_layout.addWidget(self.deepgram_reveal_btn)
+
+        deepgram_widget = QWidget()
+        deepgram_widget.setLayout(toggle_layout)
+
+        cloud_layout.addRow("Deepgram API Key:", deepgram_widget)
+
+        deepgram_hint = QLabel(
+            "Leave blank to keep using local Whisper. With a key, Deepgram Nova-2 provides ~300ms transcripts."
+        )
+        deepgram_hint.setWordWrap(True)
+        deepgram_hint.setStyleSheet("color: #666; font-size: 12px;")
+        cloud_layout.addRow("", deepgram_hint)
+
+        cloud_group.setLayout(cloud_layout)
+        layout.addWidget(cloud_group)
         
         # Audio Device Switching Group
         device_group = QGroupBox("Automatic Device Switching")
@@ -566,6 +611,15 @@ class SettingsDialog(QDialog):
         self.api_key_edit.setEnabled(enabled)
         self.model_combo.setEnabled(enabled)
         self.test_button.setEnabled(enabled)
+
+    def on_deepgram_reveal_toggled(self, checked: bool):
+        """Toggle Deepgram API key visibility."""
+        if checked:
+            self.deepgram_key_edit.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.deepgram_reveal_btn.setText("Hide")
+        else:
+            self.deepgram_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+            self.deepgram_reveal_btn.setText("Show")
     
     def on_device_switching_changed(self, state):
         """Handle device switching enabled state change."""
@@ -624,6 +678,14 @@ class SettingsDialog(QDialog):
         # Audio settings
         self.whisper_model_combo.setCurrentText(self.settings.get("audio.model", "base"))
         self.language_combo.setCurrentText(self.settings.get("audio.language", "auto"))
+
+        # Deepgram settings
+        if hasattr(self, "deepgram_key_edit"):
+            self.deepgram_key_edit.setText(self.settings.get("transcription.deepgram_api_key", ""))
+            self.deepgram_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+            if hasattr(self, "deepgram_reveal_btn"):
+                self.deepgram_reveal_btn.setChecked(False)
+                self.deepgram_reveal_btn.setText("Show")
         
         # Audio device settings
         if hasattr(self, 'device_switching_cb'):
@@ -729,6 +791,10 @@ class SettingsDialog(QDialog):
             # Save audio settings
             self.settings.set("audio.model", self.whisper_model_combo.currentText())
             self.settings.set("audio.language", self.language_combo.currentText())
+
+            # Save Deepgram key
+            if hasattr(self, 'deepgram_key_edit'):
+                self.settings.set("transcription.deepgram_api_key", self.deepgram_key_edit.text().strip())
             
             # Save audio device settings
             if hasattr(self, 'device_switching_cb'):

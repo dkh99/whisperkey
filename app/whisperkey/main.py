@@ -279,7 +279,7 @@ class WhisperKeyApp:
             self.tray_icon.settings_changed.connect(self._configure_audio_device_manager)
     
     def _configure_audio_device_manager(self):
-        """Configure audio device manager with user preferences"""
+        """Configure audio device manager with user preferences and reload transcription providers"""
         if not self.audio_device_manager:
             return
             
@@ -287,6 +287,11 @@ class WhisperKeyApp:
         settings = self.transcriber.settings
         if not settings:
             return
+        
+        # Reload Deepgram client when settings change
+        if hasattr(self.transcriber, 'fallback_transcriber') and self.transcriber.fallback_transcriber:
+            print("🔄 Reloading transcription providers from updated settings...")
+            self.transcriber.fallback_transcriber.refresh_from_settings()
         
         # Check if device switching is enabled
         device_switching_enabled = settings.get("audio.device_switching_enabled", False)

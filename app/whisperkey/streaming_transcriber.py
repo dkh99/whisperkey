@@ -48,6 +48,8 @@ class StreamingTranscriber(QObject):
         self.model_size = model_size
         self.prefer_streaming = prefer_streaming and WHISPERFLOW_AVAILABLE
         self.settings = settings
+        self.last_engine = "Whisper"
+        self.last_latency_ms = 0
         
         # Initialize models
         self.whisper_model = None
@@ -67,7 +69,7 @@ class StreamingTranscriber(QObject):
     def _initialize_transcriber(self):
         """Initialize the appropriate transcriber based on availability"""
         # Always use our custom streaming implementation
-        self.fallback_transcriber = Transcriber(model_size=self.model_size)
+        self.fallback_transcriber = Transcriber(model_size=self.model_size, settings=self.settings)
         print("✅ Custom streaming transcriber initialized")
     
     def _initialize_llm_processor(self, api_key=None):
@@ -181,6 +183,8 @@ class StreamingTranscriber(QObject):
             if self.fallback_transcriber:
                 print("🎯 Processing with faster-whisper...")
                 text = self.fallback_transcriber.transcribe(audio_array, language)
+                self.last_engine = getattr(self.fallback_transcriber, "last_engine", "Whisper")
+                self.last_latency_ms = getattr(self.fallback_transcriber, "last_latency_ms", 0)
                 
                 if text and text.strip():
                     # Emit final result
@@ -206,6 +210,8 @@ class StreamingTranscriber(QObject):
             # Use fallback transcriber
             if self.fallback_transcriber is not None:
                 text = self.fallback_transcriber.transcribe(audio_data, language)
+                self.last_engine = getattr(self.fallback_transcriber, "last_engine", "Whisper")
+                self.last_latency_ms = getattr(self.fallback_transcriber, "last_latency_ms", 0)
                 
                 if text and text.strip():
                     print(f"✅ Batch transcription complete: {text}")

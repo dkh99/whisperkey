@@ -33,6 +33,11 @@ class DictationApp(QWidget):
     def __init__(self, window_manager: DBusWindowManager):
         super().__init__()
         self.transcriber = Transcriber()
+        if hasattr(self.transcriber, "refresh_from_settings"):
+            try:
+                self.transcriber.refresh_from_settings()
+            except Exception as exc:
+                logging.warning("Failed to refresh transcriber settings: %s", exc)
         self.window_manager = window_manager
         self.recording_thread = None
         self.setup_ui()

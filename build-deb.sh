@@ -7,7 +7,7 @@
 set -e
 
 # Configuration
-VERSION="0.2.1"
+VERSION="0.3.0"
 PACKAGE_NAME="whisperkey"
 EXTENSION_UUID="whisperkey@whisperkey.app"
 BUILD_ROOT="debian-package"
@@ -78,8 +78,8 @@ uv sync
 echo "   Building wheel..."
 uv build
 
-# Find the built wheel
-WHEEL_FILE=$(ls dist/*.whl | head -n1)
+# Find the version-specific wheel we just built
+WHEEL_FILE="dist/whisperkey-${VERSION}-py3-none-any.whl"
 if [ -z "$WHEEL_FILE" ]; then
     echo "❌ Error: Wheel file not found"
     exit 1

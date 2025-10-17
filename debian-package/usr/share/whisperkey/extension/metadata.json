@@ -1,0 +1,7 @@
+{
+    "uuid": "whisperkey@whisperkey.app",
+    "name": "Whisper Key",
+    "description": "Voice dictation application for Linux",
+    "shell-version": ["46", "47", "48"],
+    "version": 4
+}

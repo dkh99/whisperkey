@@ -36,6 +36,8 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         # Set initial icon
         self.setIcon(self.icons['ready'])
         self.setToolTip("Whisper Key - Voice Transcription")
+        self.last_engine_label = "Whisper"
+        self.last_latency_ms = 0
         
         # Setup context menu
         self.setup_menu()
@@ -452,7 +454,7 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         # Create message box
         msg_box = QMessageBox()
         msg_box.setWindowTitle("About Whisper Key")
-        msg_box.setText("Whisper Key v0.2.2\n\n"
+        msg_box.setText("Whisper Key v0.3.0\n\n"
                        "Voice transcription with global hotkeys.\n"
                        "Fast, reliable speech-to-text for Linux.\n\n"
                        "Hotkeys:\n"
@@ -554,15 +556,17 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
     
     def update_status(self, recording: bool, mode: str = "", transcribing: bool = False):
         """Update tray icon status based on recording and transcription state"""
+        engine = getattr(self, "last_engine_label", "")
+        latency = getattr(self, "last_latency_ms", 0)
         if recording:
             self.setIcon(self.icons['recording'])
-            tooltip = f"Whisper Key - Recording ({mode})"
+            tooltip = self._build_tooltip("Recording", mode, engine, latency)
         elif transcribing:
             self.setIcon(self.icons['transcribing'])
-            tooltip = "Whisper Key - Transcribing..."
+            tooltip = self._build_tooltip("Transcribing", engine=engine, latency=latency)
         else:
             self.setIcon(self.icons['ready'])
-            tooltip = "Whisper Key - Ready"
+            tooltip = self._build_tooltip("Ready", engine=engine, latency=latency)
         
         self.setToolTip(tooltip)
         
@@ -573,17 +577,19 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
     def update_transcription_status(self, transcribing: bool, partial_text: str = ""):
         """Update tray icon to show transcription progress with rocket icon"""
         from datetime import datetime
+        engine = getattr(self, "last_engine_label", "")
+        latency = getattr(self, "last_latency_ms", 0)
         if transcribing:
             self.setIcon(self.icons['transcribing'])  # Show rocket icon
             if partial_text:
                 # Show partial results in tooltip
                 preview = partial_text[:30] + "..." if len(partial_text) > 30 else partial_text
-                tooltip = f"Whisper Key - 🚀 Transcribing: \"{preview}\""
+                tooltip = self._build_tooltip(f"🚀 Transcribing: \"{preview}\"", engine=engine, latency=latency)
             else:
-                tooltip = "Whisper Key - 🚀 Transcribing..."
+                tooltip = self._build_tooltip("🚀 Transcribing...", engine=engine, latency=latency)
         else:
             self.setIcon(self.icons['ready'])  # Back to microphone
-            tooltip = "Whisper Key - Ready"
+            tooltip = self._build_tooltip("Ready", engine=engine, latency=latency)
         
         self.setToolTip(tooltip)
         timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
@@ -609,11 +615,33 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         from datetime import datetime
         from PyQt6.QtWidgets import QApplication
         self.setIcon(self.icons['ready'])
-        self.setToolTip("Whisper Key - Ready")
+        engine = getattr(self, "last_engine_label", "")
+        latency = getattr(self, "last_latency_ms", 0)
+        self.setToolTip(self._build_tooltip("Ready", engine=engine, latency=latency))
         # Force immediate visual update
         QApplication.processEvents()
         timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
         print(f"🎯 [{timestamp}] Icon updated: microphone - Ready (visual update forced)")
+
+    def record_last_transcription_stats(self, engine: str, latency_ms: int):
+        self.last_engine_label = engine
+        self.last_latency_ms = latency_ms
+
+    def _build_tooltip(self, primary_status: str, mode: str = "", engine: str = "", latency: int = 0) -> str:
+        parts = ["Whisper Key"]
+        if primary_status:
+            parts.append(primary_status)
+        tooltip = " - ".join(parts)
+        detail_parts = []
+        if mode:
+            detail_parts.append(f"Mode: {mode}")
+        if engine:
+            detail_parts.append(f"Engine: {engine}")
+        if latency:
+            detail_parts.append(f"Latency: {latency}ms")
+        if detail_parts:
+            tooltip = f"{tooltip}\n" + " • ".join(detail_parts)
+        return tooltip
     
     def _convert_to_local_time(self, utc_datetime: datetime) -> datetime:
         """Convert UTC datetime to local system time (handles BST/GMT automatically)"""
