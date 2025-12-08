@@ -126,9 +126,7 @@ deb-install: deb
 	@DEB_FILE=$$(ls $(DIST_DIR)/whisperkey_*.deb | head -n1); \
 	if [ -n "$$DEB_FILE" ]; then \
 		echo "Installing $$DEB_FILE..."; \
-		sudo dpkg -i "$$DEB_FILE" || true; \
-		echo "Fixing dependencies..."; \
-		sudo apt-get install -f -y; \
+		sudo apt install -y "$$DEB_FILE"; \
 		echo "✅ Installation complete!"; \
 		echo ""; \
 		echo "Please log out and back in to activate all features."; \

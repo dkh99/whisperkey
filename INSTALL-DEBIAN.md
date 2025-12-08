@@ -43,12 +43,11 @@ This single command will:
 If you downloaded a pre-built `.deb` file:
 
 ```bash
-# Install the package
-sudo dpkg -i whisperkey_0.2.1_all.deb
-
-# Fix any missing dependencies
-sudo apt-get install -f
+# Install the package (automatically installs dependencies)
+sudo apt install ./whisperkey_0.3.0_all.deb
 ```
+
+**Note:** Using `apt install` instead of `dpkg -i` automatically resolves and installs all dependencies.
 
 ---
 
@@ -105,8 +104,7 @@ This will create: `dist/whisperkey_0.2.1_all.deb`
 ### 4. Install the Package
 
 ```bash
-sudo dpkg -i dist/whisperkey_0.2.1_all.deb
-sudo apt-get install -f  # Install any missing dependencies
+sudo apt install ./dist/whisperkey_0.3.0_all.deb
 ```
 
 ---
@@ -205,7 +203,7 @@ dpkg -L whisperkey
 make deb
 
 # Upgrade (overwrites old version)
-sudo dpkg -i dist/whisperkey_0.2.1_all.deb
+sudo apt install ./dist/whisperkey_0.3.0_all.deb
 ```
 
 ### Uninstall
