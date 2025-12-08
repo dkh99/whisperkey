@@ -1,4 +1,4 @@
-# Whisper Key v0.2.0 🎤
+# Whisper Key v0.3.3 🎤
 
 **Fast, reliable voice transcription with global hotkeys for Linux**
 

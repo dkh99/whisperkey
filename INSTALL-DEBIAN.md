@@ -44,7 +44,7 @@ If you downloaded a pre-built `.deb` file:
 
 ```bash
 # Install the package (automatically installs dependencies)
-sudo apt install ./whisperkey_0.3.1_all.deb
+sudo apt install ./whisperkey_0.3.3_all.deb
 ```
 
 **Note:** Using `apt install` instead of `dpkg -i` automatically resolves and installs all dependencies.
@@ -99,12 +99,12 @@ source $HOME/.cargo/env  # or restart your terminal
 ./build-deb.sh
 ```
 
-This will create: `dist/whisperkey_0.2.1_all.deb`
+This will create: `dist/whisperkey_0.3.3_all.deb`
 
 ### 4. Install the Package
 
 ```bash
-sudo apt install ./dist/whisperkey_0.3.1_all.deb
+sudo apt install ./dist/whisperkey_0.3.3_all.deb
 ```
 
 ---
@@ -203,7 +203,7 @@ dpkg -L whisperkey
 make deb
 
 # Upgrade (overwrites old version)
-sudo apt install ./dist/whisperkey_0.3.1_all.deb
+sudo apt install ./dist/whisperkey_0.3.3_all.deb
 ```
 
 ### Uninstall
@@ -303,7 +303,7 @@ The `.deb` package installs files to:
 
 ```
 /usr/share/whisperkey/           # Application files
-├── whisperkey-0.2.1-py3-none-any.whl  # Python wheel
+├── whisperkey-0.3.3-py3-none-any.whl  # Python wheel
 └── extension/                          # GNOME extension
     ├── extension.js
     ├── metadata.json
@@ -333,7 +333,7 @@ The `.deb` package installs files to:
 The package installs for the user who ran `sudo`. To install for a different user:
 
 ```bash
-sudo -u targetuser dpkg -i whisperkey_0.2.1_all.deb
+sudo -u targetuser dpkg -i whisperkey_0.3.3_all.deb
 ```
 
 ### Custom Hotkeys
