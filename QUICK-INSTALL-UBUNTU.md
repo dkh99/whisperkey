@@ -90,7 +90,7 @@ make deb
 ### 4. Install Package
 
 ```bash
-sudo apt install ./dist/whisperkey_0.3.0_all.deb
+sudo apt install ./dist/whisperkey_0.3.1_all.deb
 ```
 
 ### 5. Log Out and Back In

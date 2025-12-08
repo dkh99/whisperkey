@@ -7,7 +7,7 @@
 set -e
 
 # Configuration
-VERSION="0.3.0"
+VERSION="0.3.3"
 PACKAGE_NAME="whisperkey"
 EXTENSION_UUID="whisperkey@whisperkey.app"
 BUILD_ROOT="debian-package"

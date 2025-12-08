@@ -454,7 +454,7 @@ class WhisperKeyTrayIcon(QSystemTrayIcon):
         # Create message box
         msg_box = QMessageBox()
         msg_box.setWindowTitle("About Whisper Key")
-        msg_box.setText("Whisper Key v0.3.0\n\n"
+        msg_box.setText("Whisper Key v0.3.2\n\n"
                        "Voice transcription with global hotkeys.\n"
                        "Fast, reliable speech-to-text for Linux.\n\n"
                        "Hotkeys:\n"
