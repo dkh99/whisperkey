@@ -6,7 +6,7 @@ import re
 import time
 from typing import Optional
 
-from PyQt6.QtCore import QObject, QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt, QTimer
 
 try:
     import openai
@@ -89,24 +89,28 @@ class LLMProcessor(QObject):
         self._active_threads.append(thread)
         self._active_workers.append(worker)
         
-        # Connect signals with proper cleanup
+        # Connect signals with proper cleanup - use QueuedConnection to ensure
+        # cleanup happens on main thread, not worker thread (prevents heap corruption)
         thread.started.connect(worker.process)
-        worker.finished.connect(self._on_regular_finished)
-        worker.failed.connect(self._on_regular_failed)
+        worker.finished.connect(self._on_regular_finished, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(self._on_regular_failed, Qt.ConnectionType.QueuedConnection)
         
-        # Cleanup handlers
+        # Cleanup handlers - must run on main thread via QueuedConnection
         def cleanup():
-            if thread in self._active_threads:
-                self._active_threads.remove(thread)
-            if worker in self._active_workers:
-                self._active_workers.remove(worker)
-            thread.quit()
-            thread.wait(2000)  # Wait up to 2 seconds for thread to finish
-            worker.deleteLater()
-            thread.deleteLater()
+            # Use QTimer.singleShot to ensure cleanup happens after signal processing
+            def do_cleanup():
+                if thread in self._active_threads:
+                    self._active_threads.remove(thread)
+                if worker in self._active_workers:
+                    self._active_workers.remove(worker)
+                thread.quit()
+                thread.wait(2000)  # Wait up to 2 seconds for thread to finish
+                worker.deleteLater()
+                thread.deleteLater()
+            QTimer.singleShot(0, do_cleanup)
         
-        worker.finished.connect(lambda: cleanup())
-        worker.failed.connect(lambda: cleanup())
+        worker.finished.connect(cleanup, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(cleanup, Qt.ConnectionType.QueuedConnection)
         
         self.processing_started.emit()
         thread.start()
@@ -140,24 +144,28 @@ class LLMProcessor(QObject):
         self._active_threads.append(thread)
         self._active_workers.append(worker)
         
-        # Connect signals with proper cleanup
+        # Connect signals with proper cleanup - use QueuedConnection to ensure
+        # cleanup happens on main thread, not worker thread (prevents heap corruption)
         thread.started.connect(worker.process)
-        worker.finished_with_context.connect(self._on_context_finished)
-        worker.failed.connect(self._on_context_failed)
+        worker.finished_with_context.connect(self._on_context_finished, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(self._on_context_failed, Qt.ConnectionType.QueuedConnection)
         
-        # Cleanup handlers
+        # Cleanup handlers - must run on main thread via QueuedConnection
         def cleanup():
-            if thread in self._active_threads:
-                self._active_threads.remove(thread)
-            if worker in self._active_workers:
-                self._active_workers.remove(worker)
-            thread.quit()
-            thread.wait(2000)  # Wait up to 2 seconds for thread to finish
-            worker.deleteLater()
-            thread.deleteLater()
+            # Use QTimer.singleShot to ensure cleanup happens after signal processing
+            def do_cleanup():
+                if thread in self._active_threads:
+                    self._active_threads.remove(thread)
+                if worker in self._active_workers:
+                    self._active_workers.remove(worker)
+                thread.quit()
+                thread.wait(2000)  # Wait up to 2 seconds for thread to finish
+                worker.deleteLater()
+                thread.deleteLater()
+            QTimer.singleShot(0, do_cleanup)
         
-        worker.finished_with_context.connect(lambda: cleanup())
-        worker.failed.connect(lambda: cleanup())
+        worker.finished_with_context.connect(cleanup, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(cleanup, Qt.ConnectionType.QueuedConnection)
         
         self.processing_started.emit()
         thread.start()
