@@ -2,7 +2,7 @@
 set -e
 
 PACKAGE_NAME="whisperkey"
-VERSION="0.3.3"
+VERSION="0.3.4"
 EXTENSION_UUID="whisperkey@whisperkey.app"
 INSTALL_DIR="/usr/share/whisperkey"
 
