@@ -105,14 +105,26 @@ class Transcriber:
             else:
                 compute_type = self.compute_type
             
-            self.model = WhisperModel(
-                self.model_size,
-                device=device,
-                compute_type=compute_type,
-                download_root=os.path.expanduser("~/.cache/whisper"),
-                local_files_only=False  # Allow downloading model on first run
-            )
-            print(f"Model loaded successfully on {device} with {compute_type}")
+            download_root = os.path.expanduser("~/.cache/whisper")
+            try:
+                self.model = WhisperModel(
+                    self.model_size,
+                    device=device,
+                    compute_type=compute_type,
+                    download_root=download_root,
+                    local_files_only=True,
+                )
+                print(f"Model loaded from cache on {device} with {compute_type}")
+            except Exception as cache_miss:
+                print(f"Model not in cache ({cache_miss}); downloading...")
+                self.model = WhisperModel(
+                    self.model_size,
+                    device=device,
+                    compute_type=compute_type,
+                    download_root=download_root,
+                    local_files_only=False,
+                )
+                print(f"Model downloaded and loaded on {device} with {compute_type}")
             
         except Exception as e:
             print(f"Error loading Whisper model: {e}")
