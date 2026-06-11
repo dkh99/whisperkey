@@ -38,7 +38,7 @@ class Transcriber:
     ):
         """
         Initialize the Whisper transcriber.
-        
+
         Args:
             model_size: Size of the Whisper model ("tiny", "base", "small", "medium", "large-v2", "large-v3")
             device: Device to run on ("cpu", "cuda", "auto")
@@ -53,7 +53,7 @@ class Transcriber:
         self.deepgram_streaming: Optional[DeepgramStreamingTranscriber] = None
         self.last_engine: str = "Whisper"
         self.last_latency_ms: int = 0
-        
+
         # Initialize model lazily to avoid long startup times
         self._load_model()
         self._initialize_deepgram()
@@ -70,7 +70,7 @@ class Transcriber:
                 else:
                     print("⚠️ Streaming not available, using REST only")
                     self.deepgram_streaming = None
-                
+
                 print("🔌 Initializing Deepgram REST client...")
                 self.deepgram_client = DeepgramTranscriber(api_key=api_key)
                 print("✅ Deepgram REST client ready")
@@ -88,23 +88,23 @@ class Transcriber:
     def refresh_from_settings(self):
         """Reload provider selection after settings change."""
         self._initialize_deepgram()
-    
+
     def _load_model(self):
         """Load the Whisper model"""
         try:
             print(f"Loading Whisper model: {self.model_size}")
-            
+
             # Use CPU for better compatibility
             if self.device == "auto":
                 device = "cpu"
             else:
                 device = self.device
-            
+
             if self.compute_type == "auto":
                 compute_type = "int8" if device == "cpu" else "float16"
             else:
                 compute_type = self.compute_type
-            
+
             download_root = os.path.expanduser("~/.cache/whisper")
             try:
                 self.model = WhisperModel(
@@ -125,26 +125,26 @@ class Transcriber:
                     local_files_only=False,
                 )
                 print(f"Model downloaded and loaded on {device} with {compute_type}")
-            
+
         except Exception as e:
             print(f"Error loading Whisper model: {e}")
             raise
-    
+
     def transcribe(self, audio_data: np.ndarray, language="en") -> Optional[str]:
         """
         Transcribe audio data to text.
-        
+
         Args:
             audio_data: Numpy array of audio data (float32, mono, 16kHz)
             language: Language code ("en", "es", "fr", etc.) or None for auto-detection
-            
+
         Returns:
             Transcribed text or None if transcription failed
         """
         if audio_data is None or len(audio_data) == 0:
             print("No audio data provided")
             return None
-        
+
         try:
             audio_data = self._prepare_audio(audio_data)
             if audio_data is None:
@@ -160,7 +160,7 @@ class Transcriber:
 
             print("Empty transcription result")
             return None
-        
+
         except Exception as e:
             print(f"Transcription error: {e}")
             return None
@@ -200,11 +200,11 @@ class Transcriber:
             audio_data = audio_data.astype(np.float32)
 
         peak = np.max(np.abs(audio_data))
-        
+
         # Check if audio actually has voice-like characteristics
         # Voice typically has energy in 300-3000 Hz range
         rms = np.sqrt(np.mean(audio_data ** 2))
-        
+
         # Normalize audio to use full dynamic range for better Deepgram detection
         # Target 70% of full scale to avoid clipping but ensure strong signal
         if peak > 0.001:  # Avoid division by zero for silence
@@ -236,11 +236,15 @@ class Transcriber:
         if self.deepgram_streaming:
             try:
                 streamed_bytes = self._ensure_16k_mono_pcm(audio_data)
-                streamed_result: StreamingTranscriptionResult = self.deepgram_streaming.transcribe(
-                    streamed_bytes, language
+                streamed_result: StreamingTranscriptionResult = (
+                    self.deepgram_streaming.transcribe(
+                        streamed_bytes, language
+                    )
                 )
                 print(
-                    f"⚡ Deepgram STREAMING response time: {streamed_result.latency_ms}ms, confidence {streamed_result.confidence:.2f}"
+                    f"⚡ Deepgram STREAMING response time: "
+                    f"{streamed_result.latency_ms}ms, confidence "
+                    f"{streamed_result.confidence:.2f}"
                 )
                 self.last_engine = "Deepgram-Streaming"
                 self.last_latency_ms = streamed_result.latency_ms
@@ -276,8 +280,10 @@ class Transcriber:
             condition_on_previous_text=False,
             vad_filter=True,
             vad_parameters=dict(
+                threshold=0.3,
                 min_silence_duration_ms=500,
                 max_speech_duration_s=30,
+                speech_pad_ms=300,
             ),
         )
 
@@ -302,28 +308,28 @@ class Transcriber:
         """Best-effort latency logging."""
         log_message = f"engine={engine} latency_ms={latency_ms} success={'1' if success else '0'}"
         print(f"📈 Latency: {log_message}")
-    
+
     def get_available_models(self):
         """Get list of available Whisper model sizes"""
         return [
             "tiny",      # ~39 MB
-            "base",      # ~74 MB  
+            "base",      # ~74 MB
             "small",     # ~244 MB
             "medium",    # ~769 MB
             "large-v2",  # ~1550 MB
             "large-v3"   # ~1550 MB
         ]
-    
+
     def get_supported_languages(self):
         """Get list of supported language codes"""
         return [
-            "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", 
-            "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", 
-            "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", 
-            "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", 
-            "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", 
-            "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", 
-            "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", 
-            "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", 
+            "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl",
+            "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk",
+            "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr",
+            "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn",
+            "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne",
+            "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn",
+            "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi",
+            "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my",
             "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"
         ]

@@ -1,56 +1,65 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {},
-	"tasks": {
-		"version": "2.0.0",
-		"tasks": [
-			{
-				"label": "Run Whisper Key",
-				"type": "shell",
-				"command": "uv",
-				"args": ["run", "python", "-m", "whisperkey"],
-				"options": {
-					"cwd": "${workspaceFolder}/app"
-				},
-				"group": {
-					"kind": "build",
-					"isDefault": false
-				},
-				"presentation": {
-					"echo": true,
-					"reveal": "always",
-					"focus": true,
-					"panel": "shared",
-					"showReuseMessage": false,
-					"clear": true
-				},
-				"problemMatcher": [],
-				"detail": "Run Whisper Key directly without rebuilding"
-			},
-			{
-				"label": "Upgrade Whisper Key",
-				"type": "shell",
-				"command": "make",
-				"args": ["all"],
-				"group": {
-					"kind": "build",
-					"isDefault": true
-				},
-				"presentation": {
-					"echo": true,
-					"reveal": "always",
-					"focus": false,
-					"panel": "shared",
-					"showReuseMessage": true,
-					"clear": false
-				},
-				"problemMatcher": [],
-				"detail": "Rebuild and reinstall Whisper Key app and extension"
-			}
-		]
-	}
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "code-overlord.workspaceId": "01KN5EGYAMZ31W5NWB27AGFYZP"
+  },
+  "tasks": {
+    "tasks": [
+      {
+        "args": [
+          "run",
+          "python",
+          "-m",
+          "whisperkey"
+        ],
+        "command": "uv",
+        "detail": "Run Whisper Key directly without rebuilding",
+        "group": {
+          "isDefault": false,
+          "kind": "build"
+        },
+        "label": "Run Whisper Key",
+        "options": {
+          "cwd": "${workspaceFolder}/app"
+        },
+        "presentation": {
+          "clear": true,
+          "echo": true,
+          "focus": true,
+          "panel": "shared",
+          "reveal": "always",
+          "showReuseMessage": false
+        },
+        "problemMatcher": [],
+        "type": "shell"
+      },
+      {
+        "args": [
+          "all"
+        ],
+        "command": "make",
+        "detail": "Rebuild and reinstall Whisper Key app and extension",
+        "group": {
+          "isDefault": true,
+          "kind": "build"
+        },
+        "label": "Upgrade Whisper Key",
+        "presentation": {
+          "clear": false,
+          "echo": true,
+          "focus": false,
+          "panel": "shared",
+          "reveal": "always",
+          "showReuseMessage": true
+        },
+        "problemMatcher": [],
+        "type": "shell"
+      }
+    ],
+    "version": "2.0.0"
+  }
 }

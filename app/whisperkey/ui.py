@@ -1,5 +1,4 @@
 import logging
-import sys
 
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
@@ -7,7 +6,7 @@ from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QVBo
 
 from .audio_recorder import AudioRecorder
 from .dbus_window_manager import DBusWindowManager
-from .theme import EXTRA, apply_theme
+from .theme import EXTRA
 from .transcriber import Transcriber
 
 
@@ -88,7 +87,12 @@ class DictationApp(QWidget):
     def _create_cancel_button(self):
         button = QPushButton("Cancel (Esc)")
         button.setFixedWidth(200)
-        button.setStyleSheet(f"background-color: {EXTRA['errorColor']}; color: {EXTRA['textColor']}; border-color: {EXTRA['errorColor']};")
+        error_color = EXTRA['errorColor']
+        text_color = EXTRA['textColor']
+        button.setStyleSheet(
+            f"background-color: {error_color}; color: {text_color}; "
+            f"border-color: {error_color};"
+        )
         button.clicked.connect(self.close)
         return button
 

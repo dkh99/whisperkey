@@ -6,7 +6,6 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import websockets
@@ -61,7 +60,7 @@ class DeepgramStreamingTranscriber:
         }
         if language and language != "auto":
             params["language"] = language
-        
+
         # Encode params into URL
         import urllib.parse
         query_string = urllib.parse.urlencode(params)
@@ -72,7 +71,7 @@ class DeepgramStreamingTranscriber:
         async with websockets.connect(ws_url, additional_headers=headers, max_size=None) as ws:
             print(f"🔌 WebSocket connected to {ws_url[:80]}...")
             print(f"📤 Streaming {len(pcm_bytes)} bytes of PCM16 audio...")
-            
+
             # Send audio at ~2x real-time speed (Deepgram needs pacing, not instant burst)
             # At 16kHz, 16-bit PCM: 32000 bytes/sec, so 8192 bytes = ~256ms of audio
             chunk_size = 8192  # 256ms of audio per chunk
@@ -86,14 +85,12 @@ class DeepgramStreamingTranscriber:
                 await asyncio.sleep(chunk_duration_ms / 2000)  # Half the chunk duration
 
             print(f"📤 Sent {chunks_sent} audio chunks, sending Finalize and collecting results...")
-            
+
             # Send Finalize message to tell Deepgram we're done sending audio
             await ws.send(json.dumps({"type": "Finalize"}))
 
-            transcript_parts = []
             latest_transcript = ""
             confidence = 0.0
-            got_speech_final = False
 
             # Read responses - collect ALL results until speech_final
             try:
@@ -103,8 +100,8 @@ class DeepgramStreamingTranscriber:
                     m_type = data.get("type")
                     is_final = data.get("is_final", False)
                     speech_final = data.get("speech_final", False)
-                    duration = data.get("duration", 0)
-                    print(f"📡 Message: {m_type}, is_final={is_final}, speech_final={speech_final}, duration={duration}s")
+                    data.get("duration", 0)
+                    print(f"📡 Message: {m_type}, final={is_final}, speech_final={speech_final}")  # noqa: E501
                     if m_type == "Results":
                         print(f"   Full data: {json.dumps(data, indent=2)[:500]}")
 
@@ -114,17 +111,16 @@ class DeepgramStreamingTranscriber:
                         if alternatives:
                             alt = alternatives[0]
                             new_transcript = alt.get("transcript", "").strip()
-                            
+
                             # Update latest transcript (Deepgram sends cumulative transcripts)
                             if new_transcript:
                                 latest_transcript = new_transcript
                                 confidence = alt.get("confidence", 0.0)
-                                print(f"📝 Transcript (final={is_final}): '{latest_transcript[:60]}...' (conf={confidence:.2f})")
-                        
+                                print(f"📝 Transcript: '{latest_transcript[:60]}...' (conf={confidence:.2f})")
+
                         # speech_final=True means ALL audio has been processed
                         if speech_final:
                             print("✅ Got speech_final, all audio processed!")
-                            got_speech_final = True
                             break
                     elif m_type == "Error":
                         raise DeepgramStreamingError(data.get("description", "Deepgram error"))
@@ -132,7 +128,7 @@ class DeepgramStreamingTranscriber:
                         break
             except asyncio.TimeoutError:
                 print("⏳ Timeout waiting for speech_final (using last transcript)")
-            
+
             # Close the stream
             await ws.send(json.dumps({"type": "CloseStream"}))
 

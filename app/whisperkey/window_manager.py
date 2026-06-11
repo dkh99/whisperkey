@@ -16,7 +16,7 @@ class WindowManager:
         """Initialize window manager with auto-detection of display server"""
         self.display_server = self._detect_display_server()
         self.previous_window_id = None
-        
+
     def _detect_display_server(self) -> str:
         """Detect if running on X11 or Wayland"""
         if os.environ.get('WAYLAND_DISPLAY'):
@@ -25,7 +25,7 @@ class WindowManager:
             return 'x11'
         else:
             return 'unknown'
-    
+
     def get_active_window(self) -> Optional[str]:
         """Get the ID/info of the currently active window"""
         # Try QtDBus approach first (works on GNOME/Wayland)
@@ -33,7 +33,7 @@ class WindowManager:
             window_info = self._get_active_window_qtdbus()
             if window_info:
                 return window_info
-        
+
         # Fallback to xdotool for X11
         if self.display_server == 'x11':
             try:
@@ -46,9 +46,9 @@ class WindowManager:
                 return result.stdout.strip() if result.returncode == 0 else None
             except Exception as e:
                 print(f"Error getting active window with xdotool: {e}")
-        
+
         return "unknown_window"
-    
+
     def _get_active_window_qtdbus(self) -> Optional[str]:
         """Get active window info using QtDBus (GNOME Shell)"""
         try:
@@ -57,19 +57,19 @@ class WindowManager:
             if not bus.isConnected():
                 print("Cannot connect to session bus")
                 return None
-            
+
             # Create interface to GNOME Shell
             shell = QDBusInterface(
                 "org.gnome.Shell",
-                "/org/gnome/Shell", 
+                "/org/gnome/Shell",
                 "org.gnome.Shell",
                 bus
             )
-            
+
             if not shell.isValid():
                 print("GNOME Shell DBus interface not available")
                 return None
-            
+
             # Get the focused window via GNOME Shell
             js_code = """
                 let win = global.display.get_focus_window();
@@ -83,42 +83,42 @@ class WindowManager:
                     null;
                 }
             """
-            
+
             reply = shell.call("Eval", js_code)
-            
+
             if reply.type() == QDBusMessage.MessageType.ErrorMessage:
                 print(f"DBus call failed: {reply.errorMessage()}")
                 return None
-            
+
             # Parse the reply - GNOME Shell Eval returns [success, result]
             result = reply.arguments()
             if result and len(result) >= 2 and result[0] and result[1]:
                 window_data = result[1]
                 print(f"Active window via QtDBus: {window_data}")
                 return window_data
-                
+
         except Exception as e:
             print(f"Error getting active window via QtDBus: {e}")
-        
+
         return None
-    
+
     def store_current_window(self):
         """Store the currently active window before showing our app"""
         self.previous_window_id = self.get_active_window()
         print(f"Stored previous window: {self.previous_window_id}")
-    
+
     def focus_previous_window(self) -> bool:
         """Focus the previously active window"""
         if not self.previous_window_id:
             print("No previous window stored")
             return False
-        
+
         # Try QtDBus approach first (GNOME/Wayland)
         if QTDBUS_AVAILABLE:
             success = self._focus_window_qtdbus()
             if success:
                 return True
-        
+
         # Fallback to xdotool for X11
         if self.display_server == 'x11' and self.previous_window_id != "unknown_window":
             try:
@@ -132,11 +132,11 @@ class WindowManager:
                     return True
             except Exception as e:
                 print(f"xdotool focus failed: {e}")
-        
+
         # Last resort fallback
         print("Trying Alt+Tab fallback...")
         return self._alt_tab_fallback()
-    
+
     def _focus_window_qtdbus(self) -> bool:
         """Focus the previous window using QtDBus and stored window info"""
         try:
@@ -145,24 +145,24 @@ class WindowManager:
             if not bus.isConnected():
                 print("Cannot connect to session bus")
                 return False
-            
+
             # Create interface to GNOME Shell
             shell = QDBusInterface(
                 "org.gnome.Shell",
-                "/org/gnome/Shell", 
+                "/org/gnome/Shell",
                 "org.gnome.Shell",
                 bus
             )
-            
+
             if not shell.isValid():
                 print("GNOME Shell DBus interface not available")
                 return False
-            
+
             # Parse the stored window data
             if isinstance(self.previous_window_id, str) and self.previous_window_id.startswith('{'):
                 window_data = json.loads(self.previous_window_id)
                 window_id = window_data.get('id')
-                
+
                 if window_id:
                     # Use GNOME Shell to activate the window by ID
                     js_code = f"""
@@ -177,9 +177,9 @@ class WindowManager:
                         }}
                         false;
                     """
-                    
+
                     reply = shell.call("Eval", js_code)
-                    
+
                     if reply.type() != QDBusMessage.MessageType.ErrorMessage:
                         result = reply.arguments()
                         if result and len(result) >= 2 and result[0]:
@@ -187,15 +187,15 @@ class WindowManager:
                             return True
                         else:
                             print(f"❌ Could not find window with ID: {window_id}")
-                        
+
             # If we can't parse window data or find the specific window,
-                            # try to focus the most recent non-whisperkey window
+            # try to focus the most recent non-whisperkey window
             js_code = """
                 let windows = global.get_window_actors();
                 for (let i = 0; i < windows.length; i++) {
                     let win = windows[i].get_meta_window();
                     let wm_class = win.get_wm_class();
-                    if (wm_class && wm_class.toLowerCase() !== 'python' && 
+                    if (wm_class && wm_class.toLowerCase() !== 'python' &&
                         !wm_class.toLowerCase().includes('voice')) {
                         win.activate(global.get_current_time());
                         true;
@@ -204,37 +204,41 @@ class WindowManager:
                 }
                 false;
             """
-            
+
             reply = shell.call("Eval", js_code)
-            
+
             if reply.type() != QDBusMessage.MessageType.ErrorMessage:
                 result = reply.arguments()
                 if result and len(result) >= 2 and result[0]:
                     print("✅ Focused most recent non-whisperkey window")
                     return True
-                
+
         except Exception as e:
             print(f"Error focusing window via QtDBus: {e}")
-        
+
         return False
-    
+
     def _alt_tab_fallback(self) -> bool:
         """Fallback method using keyboard simulation"""
         try:
             # Try different methods for sending Alt+Tab
             methods = [
                 # Method 1: using gdbus to send key events (GNOME specific)
-                ['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell',
-                 '--object-path', '/org/gnome/Shell', '--method',
-                 'org.gnome.Shell.Eval', 'global.stage.get_key_focus().event(new Clutter.Event(Clutter.EventType.KEY_PRESS))'],
-                 
+                [
+                    'gdbus', 'call', '--session', '--dest', 'org.gnome.Shell',
+                    '--object-path', '/org/gnome/Shell', '--method',
+                    'org.gnome.Shell.Eval',
+                    'global.stage.get_key_focus().event('
+                    'new Clutter.Event(Clutter.EventType.KEY_PRESS))'
+                ],
+
                 # Method 2: xdotool if available (works on X11)
                 ['xdotool', 'key', 'alt+Tab'],
-                
+
                 # Method 3: ydotool if available (works on Wayland)
                 ['/usr/local/bin/ydotool-wrapper.sh', 'key', 'alt+Tab']
             ]
-            
+
             for method in methods:
                 try:
                     result = subprocess.run(method, capture_output=True, timeout=1)
@@ -242,15 +246,15 @@ class WindowManager:
                         return True
                 except (subprocess.TimeoutExpired, FileNotFoundError):
                     continue
-                    
+
         except Exception as e:
             print(f"Alt+Tab fallback failed: {e}")
-        
+
         return False
-    
+
     def simulate_paste(self, paste_method: str = "ctrl+shift+v") -> bool:
         """Simulate paste action with multiple fallback methods"""
-        
+
         # Method 1: Try ydotool for Wayland (if available and working)
         if self.display_server == 'wayland':
             try:
@@ -268,7 +272,7 @@ class WindowManager:
                         capture_output=True,
                         timeout=3
                     )
-                
+
                 if result.returncode == 0:
                     print("✅ ydotool paste successful")
                     return True
@@ -276,14 +280,14 @@ class WindowManager:
                     print(f"❌ ydotool failed with return code: {result.returncode}")
                     if result.stderr:
                         print(f"ydotool stderr: {result.stderr.decode()}")
-                        
+
             except subprocess.TimeoutExpired:
                 print("❌ ydotool timed out")
             except FileNotFoundError:
                 print("❌ ydotool not found")
             except Exception as e:
                 print(f"❌ ydotool error: {e}")
-        
+
         # Method 2: Try xdotool for X11
         elif self.display_server == 'x11':
             try:
@@ -293,33 +297,37 @@ class WindowManager:
                     capture_output=True,
                     timeout=3
                 )
-                
+
                 if result.returncode == 0:
                     print("✅ xdotool paste successful")
                     return True
                 else:
                     print(f"❌ xdotool failed with return code: {result.returncode}")
-                        
+
             except subprocess.TimeoutExpired:
                 print("❌ xdotool timed out")
             except FileNotFoundError:
                 print("❌ xdotool not found")
             except Exception as e:
                 print(f"❌ xdotool error: {e}")
-        
+
         # Method 3: Fallback - show notification to paste manually
-        print(f"⚠️ Automatic paste failed. Text is in clipboard - press {paste_method.replace('+', '+').upper()} to paste.")
+        paste_display = paste_method.replace('+', '+').upper()
+        print(
+            f"⚠️ Automatic paste failed. Text is in clipboard - "
+            f"press {paste_display} to paste."
+        )
         self._show_paste_notification(paste_method)
         return False  # Return False so the app knows to show notification
-    
+
     def _show_paste_notification(self, paste_method: str = "ctrl+shift+v"):
         """Show a notification telling user to paste manually"""
         try:
             # Try to show system notification
             paste_display = paste_method.replace('+', '+').upper()
             subprocess.run([
-                'notify-send', 
-                                    'Whisper Key - Paste Ready', 
+                'notify-send',
+                                    'Whisper Key - Paste Ready',
                 f'Text transcribed and copied to clipboard.\nPress {paste_display} to paste.',
                 '--icon=input-keyboard',
                 '--urgency=normal',
@@ -329,39 +337,39 @@ class WindowManager:
         except Exception as e:
             print(f"📢 Could not send notification: {e}")
             print(f"📢 Please press {paste_method.replace('+', '+').upper()} to paste the transcribed text")
-    
+
     def paste_to_previous_window(self, delay_ms=500, paste_method: str = "ctrl+shift+v") -> bool:
         """
         Focus previous window and paste clipboard contents
-        
+
         Args:
             delay_ms: Delay in milliseconds between focus and paste
             paste_method: The paste method to use ('ctrl+v' for code windows, 'ctrl+shift+v' for terminals)
-            
+
         Returns:
             True if successful, False otherwise
         """
         # First focus the previous window
         focus_success = self.focus_previous_window()
-        
+
         # Wait a bit for the window to become active
         time.sleep(delay_ms / 1000.0)
-        
+
         # Then simulate paste with the specified method
         paste_success = self.simulate_paste(paste_method)
-        
+
         print(f"Focus: {focus_success}, Paste: {paste_success} ({paste_method})")
         return focus_success and paste_success
-    
+
     def check_dependencies(self) -> dict:
         """Check which window management tools are available"""
         tools = {}
-        
+
         if self.display_server == 'x11':
             tools['xdotool'] = subprocess.run(['which', 'xdotool'], capture_output=True).returncode == 0
         elif self.display_server == 'wayland':
             tools['ydotool'] = subprocess.run(['which', 'ydotool'], capture_output=True).returncode == 0
-        
+
         return {
             'display_server': self.display_server,
             'tools': tools

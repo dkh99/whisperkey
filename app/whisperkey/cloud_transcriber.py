@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import time
+import urllib.parse
 import wave
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -62,7 +63,7 @@ class DeepgramTranscriber:
         self.model = model
         self.timeout = timeout
         self.enable_smart_format = enable_smart_format
-        
+
         # Use SDK if available, otherwise fall back to urllib
         if DEEPGRAM_SDK_AVAILABLE:
             self.client = DeepgramClient(api_key=api_key)
@@ -84,53 +85,53 @@ class DeepgramTranscriber:
             raise ValueError("Audio data is empty; cannot transcribe")
 
         wav_bytes = self._encode_wav(audio_data)
-        
+
         if self.use_sdk and self.client:
             return self._transcribe_with_sdk(wav_bytes, language)
         else:
             return self._transcribe_with_urllib(wav_bytes, language)
-    
+
     def _transcribe_with_sdk(self, wav_bytes: bytes, language: str) -> DeepgramTranscription:
         """Use Deepgram SDK (faster, better connection pooling)."""
         start_time = time.perf_counter()
-        
+
         try:
             options = {
                 "model": self.model,
                 "smart_format": self.enable_smart_format,
             }
-            
+
             if language and language != "auto":
                 options["language"] = language
             else:
                 options["detect_language"] = True
-            
+
             # Use the SDK's media API with bytes
             response = self.client.listen.v1.media.transcribe_file(
                 request=wav_bytes,
                 **options
             )
-            
+
             latency_s = time.perf_counter() - start_time
-            
+
             # Parse SDK response
             channel = response.results.channels[0]
             alternative = channel.alternatives[0]
             text = alternative.transcript.strip()
             confidence = float(alternative.confidence)
-            
+
             return DeepgramTranscription(text=text, confidence=confidence, latency_s=latency_s)
-            
+
         except Exception as exc:
             print(f"❌ Deepgram SDK error: {exc}")
             raise DeepgramError(f"Deepgram SDK failed: {exc}") from exc
-    
+
     def _transcribe_with_urllib(self, wav_bytes: bytes, language: str) -> DeepgramTranscription:
         """Fallback urllib implementation."""
         import urllib.error
         import urllib.parse
         import urllib.request
-        
+
         params = self._build_query(language)
         url = f"https://api.deepgram.com/v1/listen?{params}"
         request = urllib.request.Request(url, data=wav_bytes)

@@ -4,11 +4,11 @@ This replaces the pynput-based hotkey detection with DBus signals from GNOME.
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
 from enum import Enum
+from typing import Callable, Optional
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
-from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage
+from PyQt6.QtDBus import QDBusConnection, QDBusInterface
 
 
 class RecordingMode(Enum):
@@ -19,13 +19,13 @@ class RecordingMode(Enum):
 
 class DBusHotkeyManager(QObject):
     """Receives hotkey signals from the GNOME extension via DBus."""
-    
+
     # Qt signals
     toggle_recording_signal = pyqtSignal()
-    
+
     def __init__(self) -> None:
         super().__init__()
-        
+
         self._bus = QDBusConnection.sessionBus()
         if not self._bus.isConnected():
             raise RuntimeError("Cannot connect to the session DBus bus")
@@ -39,22 +39,22 @@ class DBusHotkeyManager(QObject):
         )
         if not self._interface.isValid():
             raise RuntimeError("Whisper Key GNOME extension DBus interface not available. Is the extension enabled?")
-        
+
         # Callbacks
         self.on_start_recording: Optional[Callable] = None
         self.on_stop_recording: Optional[Callable] = None
         self.on_mode_change: Optional[Callable[[RecordingMode], None]] = None
-        
+
         self.mode = RecordingMode.IDLE
         self._recording = False
-        
+
         # Keypress tracking to prevent duplicate sounds
         self._processed_keypresses = set()
         self._keypress_timeout = 1.0  # 1 second timeout for keypress tracking
-        
+
         # Connect to DBus signals
         self._connect_signals()
-        
+
     def _connect_signals(self):
         """Connect to DBus signals from the GNOME extension."""
         success = self._bus.connect(
@@ -64,48 +64,52 @@ class DBusHotkeyManager(QObject):
             "ToggleRecording",  # signal name
             self._on_dbus_toggle_recording  # slot method
         )
-        
+
         if success:
             print("🎯 DBus hotkey manager connected to GNOME extension for ToggleRecording")
         else:
-            raise RuntimeError("DBus connection for ToggleRecording failed. Is the Whisper Key GNOME extension enabled?")
-        
+            msg = (
+                "DBus connection for ToggleRecording failed. "
+                "Is the Whisper Key GNOME extension enabled?"
+            )
+            raise RuntimeError(msg)
+
         # Connect internal signals to callbacks
         self.toggle_recording_signal.connect(self._handle_toggle_recording)
-    
+
     @pyqtSlot()
     def _on_dbus_toggle_recording(self):
         """Handle ToggleRecording signal from DBus."""
         import time
         current_time = time.time()
-        
+
         # Generate unique keypress ID based on timestamp (rounded to nearest 100ms)
         keypress_id = int(current_time * 10)  # 100ms precision
-        
+
         # Check if we've already processed this keypress
         if keypress_id in self._processed_keypresses:
             print(f"📡 Keypress {keypress_id} already processed, ignoring duplicate")
             return
-        
+
         # Add to processed set and clean up old entries
         self._processed_keypresses.add(keypress_id)
         self._cleanup_old_keypresses(current_time)
-        
+
         print(f"📡 Received ToggleRecording signal from GNOME (keypress_id: {keypress_id})")
         self.toggle_recording_signal.emit()
-    
+
     def _cleanup_old_keypresses(self, current_time: float):
         """Remove old keypress IDs from tracking set"""
         cutoff_time = current_time - self._keypress_timeout
         cutoff_id = int(cutoff_time * 10)
-        
+
         # Remove old keypress IDs
         self._processed_keypresses = {kp_id for kp_id in self._processed_keypresses if kp_id > cutoff_id}
-    
+
     def _handle_toggle_recording(self):
         """Handle toggle recording request (press once to start/stop)."""
         self._recording = not self._recording
-        
+
         if self._recording:
             self.mode = RecordingMode.HANDS_FREE
             print(f"🎤 Starting recording in {self.mode.value} mode (toggle)")
@@ -117,26 +121,26 @@ class DBusHotkeyManager(QObject):
             print(f"🛑 Stopping recording (was in {prev_mode.value} mode)")
             if self.on_stop_recording:
                 self.on_stop_recording()
-        
+
         if self.on_mode_change:
             self.on_mode_change(self.mode)
-    
+
     def start(self):
         """Start the hotkey manager (for compatibility)."""
         # Already started in __init__
         pass
-    
+
     def stop(self):
         """Stop the hotkey manager."""
         # Nothing to stop, signals are automatically disconnected
         pass
-    
+
     @property
     def is_recording(self) -> bool:
         """Check if currently recording."""
         return self._recording
-    
+
     @property
     def current_mode(self) -> RecordingMode:
         """Get current recording mode."""
-        return self.mode 
+        return self.mode

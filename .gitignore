@@ -2,3 +2,9 @@ __pycache__
 build/
 .venv
 .ruff_cache
+
+# Added by DevInterface analysis
+dist/
+debian-package/usr/share/whisperkey/*.whl
+
+.cursor/
